@@ -293,13 +293,21 @@ def cross_arb(
 
     with GammaClient() as gamma, KalshiClient() as kc:
         poly_markets = gamma.list_updown_5m(assets=asset_list)
-        kalshi_markets = kc.list_crypto_15m(assets=asset_list)
+        try:
+            kalshi_markets = kc.list_crypto_15m(assets=asset_list)
+        except Exception as e:
+            console.print(f"[red]Kalshi fetch failed: {e}[/red]")
+            console.print(
+                "[dim]Tip: run only `poly cross-arb` (not `poly kalshi` right before). "
+                "If you hit 429, wait 10 seconds and retry.[/dim]"
+            )
+            raise typer.Exit(1)
 
-    if not poly_markets or not kalshi_markets:
-        console.print(
-            "[yellow]Missing one side: "
-            f"polymarket={len(poly_markets)} kalshi={len(kalshi_markets)}[/yellow]"
-        )
+    if not poly_markets:
+        console.print("[yellow]No Polymarket 5m markets found.[/yellow]")
+        raise typer.Exit(1)
+    if not kalshi_markets:
+        console.print("[yellow]No Kalshi 15m markets found.[/yellow]")
         raise typer.Exit(1)
 
     arbs = []

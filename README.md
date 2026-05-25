@@ -90,6 +90,9 @@ poly cross-arb                         # Polymarket vs Kalshi side-by-side
 poly cross-arb --min-edge-bps 50 --fee-bps 30
 ```
 
+Kalshi rate-limits burst traffic. Run **`poly cross-arb` alone** (it includes both
+sides). If you see `429 Too Many Requests`, wait ~10 seconds and retry once.
+
 Note: Polymarket's 5-minute windows and Kalshi's 15-minute windows resolve at
 different times, so a price gap is **not** risk-free arbitrage — treat it as a
 divergence signal. Same-window matching comes when Kalshi launches 5m crypto
