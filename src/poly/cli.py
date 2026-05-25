@@ -8,8 +8,10 @@ from rich.table import Table
 from poly.config import Settings
 from poly.clients.clob import ClobClient
 from poly.clients.gamma import GammaClient
+from poly.clients.kalshi import KalshiClient
 from poly.config import ExecutionMode
 from poly.execution.dry import run_dry_loop, run_dry_snapshot
+from poly.strategies.cross_arb import find_all_arbs, find_arb_for_asset
 from poly.execution.paper import (
     pick_explanation_window,
     run_hedged_paper_backtest,
@@ -235,6 +237,119 @@ def dry(
         settings=settings,
         duration_seconds=duration,
         strategies=strat_list,
+    )
+
+
+@app.command()
+def kalshi(
+    assets: str = typer.Option(
+        "BTC,ETH,SOL,BNB,XRP",
+        help="Comma-separated assets to show",
+    ),
+) -> None:
+    """List active 15m Kalshi crypto Up/Down markets (KX<ASSET>15M series)."""
+    asset_list = [a.strip().upper() for a in assets.split(",") if a.strip()]
+    with KalshiClient() as kc:
+        found = kc.list_crypto_15m(assets=asset_list)
+
+    if not found:
+        console.print("[yellow]No active 15m Kalshi crypto markets found.[/yellow]")
+        raise typer.Exit(1)
+
+    table = Table(title="Active Kalshi 15m crypto markets")
+    table.add_column("Asset", style="cyan")
+    table.add_column("YES bid", justify="right")
+    table.add_column("YES ask", justify="right")
+    table.add_column("Last", justify="right")
+    table.add_column("Close", style="dim")
+    table.add_column("Title", style="dim")
+    for m in found:
+        table.add_row(
+            m.asset,
+            f"{m.yes_bid:.3f}" if m.yes_bid else "-",
+            f"{m.yes_ask:.3f}" if m.yes_ask else "-",
+            f"{m.last_price:.3f}" if m.last_price else "-",
+            m.close_time[11:16] if m.close_time else "-",
+            m.yes_sub_title[:40],
+        )
+    console.print(table)
+
+
+@app.command(name="cross-arb")
+def cross_arb(
+    assets: str = typer.Option(
+        "BTC,ETH,SOL,BNB,XRP", help="Comma-separated assets to scan"
+    ),
+    min_edge_bps: float = typer.Option(
+        0.0,
+        help="Only show opportunities with at least this much edge (basis points)",
+    ),
+    fee_bps: float = typer.Option(
+        0.0, help="Worst-case fee cushion in basis points"
+    ),
+) -> None:
+    """Compare Polymarket 5m vs Kalshi 15m prices side-by-side and flag arb candidates."""
+    asset_list = [a.strip().upper() for a in assets.split(",") if a.strip()]
+
+    with GammaClient() as gamma, KalshiClient() as kc:
+        poly_markets = gamma.list_updown_5m(assets=asset_list)
+        kalshi_markets = kc.list_crypto_15m(assets=asset_list)
+
+    if not poly_markets or not kalshi_markets:
+        console.print(
+            "[yellow]Missing one side: "
+            f"polymarket={len(poly_markets)} kalshi={len(kalshi_markets)}[/yellow]"
+        )
+        raise typer.Exit(1)
+
+    arbs = []
+    by_kalshi = {m.asset: m for m in kalshi_markets}
+    for pm in poly_markets:
+        km = by_kalshi.get(pm.asset)
+        if km is None:
+            continue
+        arbs.append(find_arb_for_asset(pm, km, fee_bps=fee_bps))
+
+    table = Table(title="Polymarket 5m  vs  Kalshi 15m  (price-vs-price)")
+    table.add_column("Asset", style="cyan")
+    table.add_column("Poly UP", justify="right")
+    table.add_column("Poly DOWN", justify="right")
+    table.add_column("Kal YES ask", justify="right")
+    table.add_column("Kal NO ask", justify="right")
+    table.add_column("Best cost", justify="right")
+    table.add_column("Edge (bps)", justify="right")
+    table.add_column("Direction", style="dim")
+
+    for a in arbs:
+        edge_style = "green" if a.edge_bps >= max(1.0, min_edge_bps) else "red"
+        table.add_row(
+            a.asset,
+            f"{a.polymarket_up_price:.3f}",
+            f"{a.polymarket_down_price:.3f}",
+            f"{a.kalshi_yes_ask:.3f}",
+            f"{a.kalshi_no_ask:.3f}",
+            f"{a.best_cost:.3f}",
+            f"[{edge_style}]{a.edge_bps:+.0f}[/]",
+            a.best_direction,
+        )
+    console.print(table)
+
+    flagged = [a for a in arbs if a.edge_bps >= max(1.0, min_edge_bps)]
+    if flagged:
+        console.print(
+            f"\n[bold green]{len(flagged)} candidate(s) above {min_edge_bps:.0f} bps edge.[/bold green]"
+        )
+        for a in flagged:
+            console.print(f"  ▶ {a.asset} {a.best_direction} — {a.edge_bps:+.0f} bps")
+    else:
+        console.print(
+            f"\n[dim]No edges above {min_edge_bps:.0f} bps right now.[/dim]"
+        )
+
+    console.print(
+        "\n[yellow]Note:[/yellow] Polymarket 5m and Kalshi 15m resolve on different "
+        "windows, so this is a sentiment-divergence signal — not risk-free arb. "
+        "Pair-tracking same-window markets comes later."
     )
 
 

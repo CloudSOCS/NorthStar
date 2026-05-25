@@ -61,20 +61,43 @@ APIs used (all public, read-only):
 Live Polymarket prices, **virtual money**. Persistent account in `~/.poly/practice.json`.
 
 ```bash
-poly practice reset --bankroll 1000     # fresh virtual $1k
-poly practice run --duration 300        # 5-minute live dashboard with auto-trade
-poly practice run --manual              # just watch, no auto-trades
-poly practice buy ETH UP 25             # manually buy $25 of ETH UP
-poly practice status                    # cash + open positions + history
-poly practice close <id>                # sell a position at current mid
+# Fresh virtual $1k (add -y to skip confirmation)
+poly practice reset --bankroll 1000 -y
+
+# 5-minute live dashboard with auto-trade
+poly practice run --duration 300
+
+# Watch only — no auto-trades
+poly practice run --duration 300 --manual
+
+# Manual buy $25 of ETH UP (run in another terminal while dashboard runs)
+poly practice buy ETH UP 25
+
+poly practice status
+poly practice close POSITION_ID
 ```
 
 The dashboard shows live UP/DOWN mids, your open positions with mark-to-market PnL,
 and auto-settles positions when their 5m markets close on Polymarket.
 
+### Phase 2.6 — Kalshi cross-market dry-run ✅
+
+Public Kalshi market data (no API key needed) for the same crypto assets.
+
+```bash
+poly kalshi                            # active 15m BTC/ETH/SOL Kalshi markets
+poly cross-arb                         # Polymarket vs Kalshi side-by-side
+poly cross-arb --min-edge-bps 50 --fee-bps 30
+```
+
+Note: Polymarket's 5-minute windows and Kalshi's 15-minute windows resolve at
+different times, so a price gap is **not** risk-free arbitrage — treat it as a
+divergence signal. Same-window matching comes when Kalshi launches 5m crypto
+markets (or with manual time alignment).
+
 ### Phase 3 — Live (next)
 
-- Optional Kalshi feed for cross-market arb
+- Kalshi orders via signed API requests (needs API key + RSA key pair)
 
 ### Phase 3 — Live (last)
 
@@ -105,7 +128,9 @@ src/poly/
 | `poly paper` | Markov+Kelly directional paper backtest |
 | `poly hedged` | Hedged YES+NO paper backtest (direction-neutral) |
 | `poly explain` | Step-by-step explanation of one Markov trade decision |
-| `poly markets` | List live 5m Up/Down markets (Gamma) |
+| `poly markets` | List live 5m Up/Down markets (Polymarket Gamma) |
+| `poly kalshi` | List live 15m crypto markets (Kalshi) |
+| `poly cross-arb` | Polymarket vs Kalshi price comparison |
 | `poly dry` | Real prices, dry-run signals (no orders) |
 | `poly practice run` | Live dashboard with virtual bankroll |
 | `poly practice buy / close / status / reset` | Manage your practice account |
