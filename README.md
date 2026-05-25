@@ -26,6 +26,16 @@ poly paper --windows 200
 poly explain   # plain-English walkthrough of one decision
 ```
 
+### Phase 1.5 — Hedged YES+NO (Gabagool-style)
+
+- Buys BOTH sides cheap → locks in profit no matter how the market resolves
+- Tutorial for *why win rate is the wrong metric*
+- Inspired by the [Gabagool bot](https://github.com/satyasumn7/Polymarket-Trading-Bot-Gabagool)
+
+```bash
+poly hedged --windows 150
+```
+
 ### Phase 2 — Dry-run (next)
 
 - Pull **real** Polymarket prices (public APIs, no wallet)
@@ -58,8 +68,9 @@ src/poly/
 
 | Command | What it does |
 |---------|----------------|
-| `poly paper` | Run paper backtest on synthetic 5m-style windows |
-| `poly explain` | Step-by-step explanation of one trade decision |
+| `poly paper` | Markov+Kelly directional paper backtest |
+| `poly hedged` | Hedged YES+NO paper backtest (direction-neutral) |
+| `poly explain` | Step-by-step explanation of one Markov trade decision |
 | `poly status` | Show current config and which phase is wired |
 
 ## Safety

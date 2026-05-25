@@ -6,7 +6,11 @@ from rich.panel import Panel
 from rich.table import Table
 
 from poly.config import Settings
-from poly.execution.paper import pick_explanation_window, run_paper_backtest
+from poly.execution.paper import (
+    pick_explanation_window,
+    run_hedged_paper_backtest,
+    run_paper_backtest,
+)
 from poly.modes import describe_mode
 
 app = typer.Typer(
@@ -91,6 +95,59 @@ def explain() -> None:
         f"[bold]Decision[/bold]: {signal.decision.reason}",
     ]
     console.print(Panel("\n".join(lines), title="How poly decides one trade", border_style="blue"))
+
+
+@app.command()
+def hedged(
+    windows: int = typer.Option(200, help="Number of synthetic 5m windows"),
+    seed: int = typer.Option(42, help="Random seed"),
+    buy_below: float = typer.Option(
+        0.45, help="Buy each leg only when its price is at or below this"
+    ),
+    leg_fraction: float = typer.Option(
+        0.05, help="Fraction of bankroll to risk per leg"
+    ),
+) -> None:
+    """Phase 1.5: Gabagool-style hedged YES+NO paper backtest."""
+    settings = Settings()
+    result = run_hedged_paper_backtest(
+        n_windows=windows,
+        settings=settings,
+        seed=seed,
+        buy_yes_below=buy_below,
+        buy_no_below=buy_below,
+        leg_fraction=leg_fraction,
+    )
+
+    table = Table(title="Hedged (YES+NO) backtest summary")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_row("Windows simulated", str(result.n_windows))
+    table.add_row("Hedges opened", str(result.n_trades))
+    table.add_row(
+        "Hedges with cost > $1 (lossy)", str(result.n_filled_unprofitable)
+    )
+    table.add_row(
+        "Avg locked profit / share", f"{result.avg_locked_profit_per_share:+.4f}"
+    )
+    table.add_row("Starting bankroll", f"${result.starting_bankroll:,.2f}")
+    table.add_row("Ending bankroll", f"${result.ending_bankroll:,.2f}")
+    pnl = result.ending_bankroll - result.starting_bankroll
+    table.add_row("Net PnL", f"${pnl:+,.2f}")
+    console.print(table)
+
+    if result.trades:
+        console.print("\n[dim]Last 5 hedges:[/dim]")
+        for t in result.trades[-5:]:
+            direction = "UP" if t.resolved_up else "DOWN"
+            console.print(
+                f"  {direction:<4} {t.asset} YES@{t.yes_price:.2f} + NO@{t.no_price:.2f} "
+                f"cost={t.cost_per_share:.3f}/share PnL ${t.pnl:+.2f}"
+            )
+    console.print(
+        "\n[dim]Note: direction (UP/DOWN) is shown only for transparency — "
+        "a hedge pays $1 on the winning side regardless.[/dim]"
+    )
 
 
 @app.command()
