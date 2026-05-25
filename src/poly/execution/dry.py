@@ -32,7 +32,7 @@ def evaluate_markov_dry(
     settings: Settings,
     bankroll: float,
 ) -> Optional[DrySignal]:
-    if len(tracker.up_prices) < 6:
+    if len(tracker.up_prices) < 4:
         return None
     window = tracker.to_window_series()
     strategy = MarkovCryptoStrategy(settings)
@@ -114,6 +114,9 @@ def run_dry_snapshot(
             return []
 
         prices = feed.poll_prices(markets)
+        for _ in range(3):
+            time.sleep(min(1.0, settings.dry_poll_seconds))
+            prices = feed.poll_prices(markets)
         bankroll = settings.starting_bankroll
 
         for m in markets:
