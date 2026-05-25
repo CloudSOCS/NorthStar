@@ -59,7 +59,13 @@ class HedgedBinaryStrategy:
         no_price = None
         no_tick = -1
 
+        down_series = window.down_prices
         for idx, price in enumerate(window.prices):
+            down_p = (
+                down_series[idx]
+                if down_series and idx < len(down_series)
+                else (1.0 - price)
+            )
             if yes_price is None and price <= self.buy_yes_below:
                 yes_price = price
                 yes_tick = idx
@@ -67,9 +73,9 @@ class HedgedBinaryStrategy:
             if (
                 yes_price is not None
                 and no_price is None
-                and (1.0 - price) <= self.buy_no_below
+                and down_p <= self.buy_no_below
             ):
-                no_price = 1.0 - price
+                no_price = down_p
                 no_tick = idx
                 break
 

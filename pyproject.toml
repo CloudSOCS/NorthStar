@@ -15,12 +15,12 @@ dependencies = [
     "pydantic-settings>=2.0",
     "typer>=0.9",
     "rich>=13.0",
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-cov>=4.0"]
 live = [
-    "httpx>=0.27",
     "websockets>=12.0",
 ]
 

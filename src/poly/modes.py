@@ -27,9 +27,9 @@ def describe_mode(settings: Settings) -> ModeStatus:
         return ModeStatus(
             mode=ExecutionMode.DRY,
             markov_active=True,
-            cross_arb_active=True,
+            cross_arb_active=False,
             places_orders=False,
-            notes="Real feeds, logged signals, no wallet (Phase 2).",
+            notes="Real Gamma + CLOB prices; signals only, no wallet (Phase 2).",
         )
     return ModeStatus(
         mode=ExecutionMode.LIVE,

@@ -24,6 +24,18 @@ class Settings(BaseSettings):
 
     poly_mode: ExecutionMode = Field(default=ExecutionMode.PAPER, alias="POLY_MODE")
 
+    # Polymarket APIs (read-only for dry-run)
+    gamma_api_url: str = Field(
+        default="https://gamma-api.polymarket.com", alias="GAMMA_API_URL"
+    )
+    clob_api_url: str = Field(
+        default="https://clob.polymarket.com", alias="CLOB_API_URL"
+    )
+    dry_poll_seconds: float = Field(default=5.0, alias="DRY_POLL_SECONDS")
+    dry_assets: str = Field(
+        default="BTC,ETH,SOL,BNB,XRP", alias="DRY_ASSETS"
+    )
+
     # Markov / edge strategy
     min_edge: float = Field(default=0.03, alias="MIN_EDGE")
     entry_min_price: float = Field(default=0.83, alias="ENTRY_MIN_PRICE")

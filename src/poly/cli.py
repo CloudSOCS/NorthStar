@@ -6,6 +6,9 @@ from rich.panel import Panel
 from rich.table import Table
 
 from poly.config import Settings
+from poly.clients.gamma import GammaClient
+from poly.config import ExecutionMode
+from poly.execution.dry import run_dry_loop, run_dry_snapshot
 from poly.execution.paper import (
     pick_explanation_window,
     run_hedged_paper_backtest,
@@ -147,6 +150,84 @@ def hedged(
     console.print(
         "\n[dim]Note: direction (UP/DOWN) is shown only for transparency — "
         "a hedge pays $1 on the winning side regardless.[/dim]"
+    )
+
+
+@app.command()
+def markets(
+    assets: str = typer.Option(
+        "BTC,ETH,SOL,BNB,XRP",
+        help="Comma-separated assets to show",
+    ),
+) -> None:
+    """List active 5m Up/Down markets from Polymarket (Gamma API)."""
+    asset_list = [a.strip().upper() for a in assets.split(",") if a.strip()]
+    with GammaClient() as gamma:
+        found = gamma.list_updown_5m(assets=asset_list)
+
+    if not found:
+        console.print("[yellow]No active 5m Up/Down markets for those assets.[/yellow]")
+        raise typer.Exit(1)
+
+    table = Table(title="Active 5m Up/Down markets (Gamma)")
+    table.add_column("Asset", style="cyan")
+    table.add_column("UP", justify="right")
+    table.add_column("DOWN", justify="right")
+    table.add_column("Question", style="dim")
+    for m in found:
+        table.add_row(
+            m.asset,
+            f"{m.gamma_up_price:.3f}",
+            f"{m.gamma_down_price:.3f}",
+            m.question[:55] + ("…" if len(m.question) > 55 else ""),
+        )
+    console.print(table)
+
+
+@app.command()
+def dry(
+    duration: int = typer.Option(
+        60, help="How long to poll (seconds). Use 0 for one snapshot."
+    ),
+    strategy: str = typer.Option(
+        "both",
+        help="markov | hedged | both",
+    ),
+    assets: str = typer.Option(
+        "", help="Override DRY_ASSETS from .env (e.g. BTC,ETH)"
+    ),
+) -> None:
+    """Phase 2: real Polymarket prices, dry-run signals only (no orders)."""
+    settings = Settings(poly_mode=ExecutionMode.DRY)
+    if assets:
+        settings = settings.model_copy(update={"dry_assets": assets})
+
+    strat_map = {
+        "markov": ["markov"],
+        "hedged": ["hedged"],
+        "both": ["markov", "hedged"],
+    }
+    strat_list = strat_map.get(strategy.lower())
+    if not strat_list:
+        console.print(f"[red]Unknown strategy: {strategy}[/red]")
+        raise typer.Exit(1)
+
+    if duration <= 0:
+        signals = run_dry_snapshot(settings=settings, strategies=strat_list)
+        if not signals:
+            console.print(
+                "[yellow]No signals yet — need a few price ticks for Markov, "
+                "or prices outside entry bands. Try: poly dry --duration 30[/yellow]"
+            )
+        for sig in signals:
+            style = "green" if sig.would_trade else "dim"
+            console.print(f"[{style}]{sig.asset} [{sig.strategy}] {sig.message}[/]")
+        return
+
+    run_dry_loop(
+        settings=settings,
+        duration_seconds=duration,
+        strategies=strat_list,
     )
 
 

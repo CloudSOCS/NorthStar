@@ -36,11 +36,29 @@ poly explain   # plain-English walkthrough of one decision
 poly hedged --windows 150
 ```
 
-### Phase 2 — Dry-run (next)
+### Phase 2 — Dry-run ✅
 
-- Pull **real** Polymarket prices (public APIs, no wallet)
-- Print signals: *“would buy UP @ 0.52, edge 4.2%, size $12”*
-- Optional Kalshi feed for cross-market arb **detection only**
+Real Polymarket **Gamma + CLOB** prices. Logs signals only — **no wallet, no orders**.
+
+```bash
+cp .env.example .env   # optional: set POLY_MODE=dry
+poly markets                    # list active 5m BTC/ETH/SOL markets
+poly dry --duration 0           # one snapshot of signals
+poly dry --duration 120         # poll 2 minutes (every 5s)
+poly dry --strategy markov      # Markov only
+poly dry --strategy hedged      # hedged only
+```
+
+APIs used (all public, read-only):
+
+| API | URL |
+|-----|-----|
+| Gamma | `https://gamma-api.polymarket.com` |
+| CLOB | `https://clob.polymarket.com` |
+
+### Phase 3 — Live (next)
+
+- Optional Kalshi feed for cross-market arb
 
 ### Phase 3 — Live (last)
 
@@ -71,6 +89,8 @@ src/poly/
 | `poly paper` | Markov+Kelly directional paper backtest |
 | `poly hedged` | Hedged YES+NO paper backtest (direction-neutral) |
 | `poly explain` | Step-by-step explanation of one Markov trade decision |
+| `poly markets` | List live 5m Up/Down markets (Gamma) |
+| `poly dry` | Real prices, dry-run signals (no orders) |
 | `poly status` | Show current config and which phase is wired |
 
 ## Safety

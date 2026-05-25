@@ -8,13 +8,14 @@ import numpy as np
 
 @dataclass
 class WindowSeries:
-    """One synthetic 5-minute market window: price ticks + outcome."""
+    """One 5-minute market window: UP price ticks (+ optional DOWN ticks for hedged)."""
 
     asset: str
     prices: List[float]
     resolved_up: bool
     open_price: float
     close_price: float
+    down_prices: Optional[List[float]] = None
 
 
 def generate_paper_windows(
