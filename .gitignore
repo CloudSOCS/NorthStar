@@ -17,3 +17,4 @@ htmlcov/
 data/cache/
 *.db
 .DS_Store
+.poly/

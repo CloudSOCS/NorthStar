@@ -56,6 +56,22 @@ APIs used (all public, read-only):
 | Gamma | `https://gamma-api.polymarket.com` |
 | CLOB | `https://clob.polymarket.com` |
 
+### Phase 2.5 — Practice trading ✅
+
+Live Polymarket prices, **virtual money**. Persistent account in `~/.poly/practice.json`.
+
+```bash
+poly practice reset --bankroll 1000     # fresh virtual $1k
+poly practice run --duration 300        # 5-minute live dashboard with auto-trade
+poly practice run --manual              # just watch, no auto-trades
+poly practice buy ETH UP 25             # manually buy $25 of ETH UP
+poly practice status                    # cash + open positions + history
+poly practice close <id>                # sell a position at current mid
+```
+
+The dashboard shows live UP/DOWN mids, your open positions with mark-to-market PnL,
+and auto-settles positions when their 5m markets close on Polymarket.
+
 ### Phase 3 — Live (next)
 
 - Optional Kalshi feed for cross-market arb
@@ -91,6 +107,8 @@ src/poly/
 | `poly explain` | Step-by-step explanation of one Markov trade decision |
 | `poly markets` | List live 5m Up/Down markets (Gamma) |
 | `poly dry` | Real prices, dry-run signals (no orders) |
+| `poly practice run` | Live dashboard with virtual bankroll |
+| `poly practice buy / close / status / reset` | Manage your practice account |
 | `poly status` | Show current config and which phase is wired |
 
 ## Safety

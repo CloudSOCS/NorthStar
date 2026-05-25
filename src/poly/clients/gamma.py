@@ -70,6 +70,15 @@ class GammaClient:
     def __exit__(self, *args: object) -> None:
         self.close()
 
+    def get_market_by_slug(self, slug: str) -> Optional[Dict[str, Any]]:
+        """Look up a single market (including closed ones) by slug."""
+        r = self._client.get("/markets", params={"slug": slug, "limit": 1})
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, list) and data:
+            return data[0]
+        return None
+
     def fetch_recent_markets(self, limit: int = 100) -> List[Dict[str, Any]]:
         r = self._client.get(
             "/markets",

@@ -6,6 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from poly.config import Settings
+from poly.clients.clob import ClobClient
 from poly.clients.gamma import GammaClient
 from poly.config import ExecutionMode
 from poly.execution.dry import run_dry_loop, run_dry_snapshot
@@ -15,6 +16,12 @@ from poly.execution.paper import (
     run_paper_backtest,
 )
 from poly.modes import describe_mode
+from poly.practice.account import (
+    default_state_path,
+    load_account,
+    save_account,
+)
+from poly.practice.runner import run_practice_session
 
 app = typer.Typer(
     name="poly",
@@ -228,6 +235,210 @@ def dry(
         settings=settings,
         duration_seconds=duration,
         strategies=strat_list,
+    )
+
+
+practice_app = typer.Typer(help="Virtual trading on real Polymarket prices")
+app.add_typer(practice_app, name="practice")
+
+
+@practice_app.command("status")
+def practice_status() -> None:
+    """Show the current practice account: cash, open positions, history."""
+    account = load_account()
+
+    table = Table(title="Practice account")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_row("Cash", f"${account.bankroll:,.2f}")
+    table.add_row("Starting bankroll", f"${account.starting_bankroll:,.2f}")
+    table.add_row("Open positions", str(len(account.open_positions())))
+    table.add_row("Realized PnL", f"${account.total_realized_pnl():+,.2f}")
+    table.add_row("Capital at risk", f"${account.total_capital_at_risk():,.2f}")
+    table.add_row("State file", str(default_state_path()))
+    console.print(table)
+
+    open_pos = account.open_positions()
+    if open_pos:
+        pos_table = Table(title="Open positions")
+        pos_table.add_column("ID")
+        pos_table.add_column("Asset")
+        pos_table.add_column("Side")
+        pos_table.add_column("Shares", justify="right")
+        pos_table.add_column("Entry", justify="right")
+        pos_table.add_column("Cost", justify="right")
+        pos_table.add_column("Strategy", style="dim")
+        for p in open_pos:
+            pos_table.add_row(
+                p.id,
+                p.asset,
+                p.side,
+                f"{p.shares:.2f}",
+                f"{p.entry_price:.3f}",
+                f"${p.capital_used:.2f}",
+                p.strategy,
+            )
+        console.print(pos_table)
+
+    if account.history:
+        hist_table = Table(title=f"Last {min(8, len(account.history))} settlements")
+        hist_table.add_column("Asset")
+        hist_table.add_column("Side")
+        hist_table.add_column("Entry", justify="right")
+        hist_table.add_column("Close", justify="right")
+        hist_table.add_column("PnL", justify="right")
+        hist_table.add_column("Note", style="dim")
+        for ev in account.history[-8:]:
+            pnl_style = "green" if ev.realized_pnl >= 0 else "red"
+            hist_table.add_row(
+                ev.asset,
+                ev.side,
+                f"{ev.entry_price:.3f}",
+                f"{ev.closing_price:.3f}",
+                f"[{pnl_style}]{ev.realized_pnl:+.2f}[/]",
+                ev.note,
+            )
+        console.print(hist_table)
+
+
+@practice_app.command("reset")
+def practice_reset(
+    bankroll: float = typer.Option(1000.0, help="New starting bankroll"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+) -> None:
+    """Wipe the practice account and start fresh."""
+    path = default_state_path()
+    if path.exists() and not yes:
+        confirm = typer.confirm(
+            f"This will erase {path}. Continue?", default=False
+        )
+        if not confirm:
+            raise typer.Exit(0)
+    if path.exists():
+        path.unlink()
+    account = load_account(starting_bankroll=bankroll)
+    save_account(account)
+    console.print(f"[green]Practice account reset with ${bankroll:,.2f}[/green]")
+
+
+@practice_app.command("buy")
+def practice_buy(
+    asset: str = typer.Argument(..., help="Asset symbol, e.g. BTC"),
+    side: str = typer.Argument(..., help="UP or DOWN"),
+    usd: float = typer.Argument(..., help="Dollar amount to risk"),
+) -> None:
+    """Manually buy UP or DOWN on the current 5m market for an asset."""
+    asset_u = asset.upper()
+    side_u = side.upper()
+    if side_u not in ("UP", "DOWN"):
+        console.print("[red]side must be UP or DOWN[/red]")
+        raise typer.Exit(1)
+
+    account = load_account()
+    if usd > account.bankroll:
+        console.print(
+            f"[red]Insufficient cash: have ${account.bankroll:,.2f}, need ${usd:,.2f}[/red]"
+        )
+        raise typer.Exit(1)
+
+    with GammaClient() as gamma, ClobClient() as clob:
+        markets = gamma.list_updown_5m(assets=[asset_u])
+        if not markets:
+            console.print(f"[yellow]No active 5m market for {asset_u}[/yellow]")
+            raise typer.Exit(1)
+        m = markets[0]
+        token_id = m.up_token_id if side_u == "UP" else m.down_token_id
+        price = clob.get_midpoint(token_id)
+        if price is None:
+            price = m.gamma_up_price if side_u == "UP" else m.gamma_down_price
+
+    pos = account.buy(
+        market_slug=m.slug,
+        asset=m.asset,
+        side=side_u,  # type: ignore[arg-type]
+        usd=usd,
+        price=price,
+        strategy="manual",
+    )
+    save_account(account)
+    console.print(
+        f"[green]Bought {pos.shares:.2f} {pos.asset} {pos.side} @ {pos.entry_price:.3f} "
+        f"for ${pos.capital_used:.2f}[/green]"
+    )
+    console.print(f"  position id: [bold]{pos.id}[/bold]")
+    console.print(f"  market: {m.question}")
+    console.print(f"  cash remaining: ${account.bankroll:,.2f}")
+
+
+@practice_app.command("close")
+def practice_close(
+    position_id: str = typer.Argument(..., help="Position ID from `poly practice status`"),
+) -> None:
+    """Close an open position at the current mid price (no real fill, just practice)."""
+    account = load_account()
+    pos = next((p for p in account.positions if p.id == position_id and not p.closed), None)
+    if not pos:
+        console.print(f"[red]No open position with id {position_id}[/red]")
+        raise typer.Exit(1)
+
+    with ClobClient() as clob, GammaClient() as gamma:
+        markets = gamma.list_updown_5m(assets=[pos.asset])
+        if markets and markets[0].slug == pos.market_slug:
+            tok = markets[0].up_token_id if pos.side == "UP" else markets[0].down_token_id
+            mid = clob.get_midpoint(tok) or pos.entry_price
+        else:
+            # market already rolled — try Gamma lookup for final price
+            raw = gamma.get_market_by_slug(pos.market_slug)
+            mid = pos.entry_price
+            if raw and raw.get("closed"):
+                from poly.clients.gamma import _parse_json_list
+
+                outcomes = _parse_json_list(raw.get("outcomes"))
+                prices = _parse_json_list(raw.get("outcomePrices"))
+                for i, name in enumerate(outcomes):
+                    if str(name).upper() == pos.side and i < len(prices):
+                        mid = float(prices[i])
+
+    ev = account.close_at_price(pos, sell_price=mid, note="user closed")
+    save_account(account)
+    pnl_style = "green" if ev.realized_pnl >= 0 else "red"
+    console.print(
+        f"Closed {pos.asset} {pos.side} @ {mid:.3f}: "
+        f"[{pnl_style}]${ev.realized_pnl:+,.2f}[/]"
+    )
+    console.print(f"  cash now: ${account.bankroll:,.2f}")
+
+
+@practice_app.command("run")
+def practice_run(
+    duration: int = typer.Option(300, help="Session length in seconds"),
+    auto: bool = typer.Option(True, "--auto/--manual", help="Auto-trade on signals"),
+    strategy: str = typer.Option("both", help="markov | hedged | both"),
+    assets: str = typer.Option("BTC,ETH,SOL,BNB,XRP", help="Comma-separated assets"),
+    hedged_buy_below: float = typer.Option(
+        0.45, help="Hedged auto-trade trigger (each leg must be at/below this)"
+    ),
+) -> None:
+    """Live practice dashboard: real prices, virtual money."""
+    settings = Settings(poly_mode=ExecutionMode.DRY)
+    strat_map = {
+        "markov": ["markov"],
+        "hedged": ["hedged"],
+        "both": ["markov", "hedged"],
+    }
+    strat_list = strat_map.get(strategy.lower())
+    if not strat_list:
+        console.print(f"[red]Unknown strategy: {strategy}[/red]")
+        raise typer.Exit(1)
+
+    asset_list = [a.strip().upper() for a in assets.split(",") if a.strip()]
+    run_practice_session(
+        duration_seconds=duration,
+        settings=settings,
+        auto_trade=auto,
+        strategies=strat_list,
+        assets=asset_list,
+        hedged_buy_below=hedged_buy_below,
     )
 
 
