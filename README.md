@@ -98,9 +98,24 @@ different times, so a price gap is **not** risk-free arbitrage — treat it as a
 divergence signal. Same-window matching comes when Kalshi launches 5m crypto
 markets (or with manual time alignment).
 
-### Phase 3 — Live (next)
+### Phase 2.7 — Kalshi dry-run (for US traders) ✅
 
-- Kalshi orders via signed API requests (needs API key + RSA key pair)
+Signals for **Kalshi 15m** markets — the platform you can trade today.
+
+```bash
+poly kalshi-dry
+poly kalshi-dry --duration 300
+```
+
+Green **▶** = open Kalshi app and place the trade manually. See [docs/KALSHI_SETUP.md](docs/KALSHI_SETUP.md).
+
+```bash
+poly practice pnl    # quick up/down on virtual account
+```
+
+### Phase 3 — Live Kalshi orders (next)
+
+- RSA API key from Kalshi Settings → see [docs/KALSHI_SETUP.md](docs/KALSHI_SETUP.md)
 
 ### Phase 3 — Live (last)
 
@@ -133,7 +148,9 @@ src/poly/
 | `poly explain` | Step-by-step explanation of one Markov trade decision |
 | `poly markets` | List live 5m Up/Down markets (Polymarket Gamma) |
 | `poly kalshi` | List live 15m crypto markets (Kalshi) |
+| `poly kalshi-dry` | Kalshi-only signals (trade manually in app) |
 | `poly cross-arb` | Polymarket vs Kalshi price comparison |
+| `poly practice pnl` | Quick practice account up/down |
 | `poly dry` | Real prices, dry-run signals (no orders) |
 | `poly practice run` | Live dashboard with virtual bankroll |
 | `poly practice buy / close / status / reset` | Manage your practice account |

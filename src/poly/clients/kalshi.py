@@ -61,6 +61,11 @@ class KalshiMarket:
     def no_mid(self) -> float:
         return 1.0 - self.yes_mid
 
+    @property
+    def question(self) -> str:
+        """Alias for strategies that expect Polymarket-style `.question`."""
+        return self.title
+
 
 def _f(value: Any, default: float = 0.0) -> float:
     if value is None or value == "":

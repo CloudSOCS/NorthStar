@@ -11,6 +11,7 @@ from poly.clients.gamma import GammaClient
 from poly.clients.kalshi import KalshiClient
 from poly.config import ExecutionMode
 from poly.execution.dry import run_dry_loop, run_dry_snapshot
+from poly.execution.kalshi_dry import run_kalshi_dry_loop, run_kalshi_dry_snapshot
 from poly.strategies.cross_arb import find_all_arbs, find_arb_for_asset
 from poly.execution.paper import (
     pick_explanation_window,
@@ -361,8 +362,65 @@ def cross_arb(
     )
 
 
+@app.command(name="kalshi-dry")
+def kalshi_dry_cmd(
+    duration: int = typer.Option(
+        0, help="Seconds to poll (0 = one snapshot)"
+    ),
+    strategy: str = typer.Option("both", help="markov | hedged | both"),
+    assets: str = typer.Option("BTC,ETH,SOL,BNB,XRP", help="Comma-separated assets"),
+) -> None:
+    """Kalshi-only dry-run signals — trade manually in the Kalshi app (US-legal)."""
+    strat_map = {
+        "markov": ["markov"],
+        "hedged": ["hedged"],
+        "both": ["markov", "hedged"],
+    }
+    strat_list = strat_map.get(strategy.lower())
+    if not strat_list:
+        console.print(f"[red]Unknown strategy: {strategy}[/red]")
+        raise typer.Exit(1)
+    asset_list = [a.strip().upper() for a in assets.split(",") if a.strip()]
+
+    if duration <= 0:
+        signals = run_kalshi_dry_snapshot(strategies=strat_list, assets=asset_list)
+        if not signals:
+            console.print(
+                "[dim]No trade signals yet. Run: poly kalshi-dry --duration 120[/dim]"
+            )
+        for sig in signals:
+            style = "green" if sig.would_trade else "dim"
+            console.print(f"[{style}]{sig.asset} [{sig.strategy}] {sig.message}[/]")
+        return
+
+    run_kalshi_dry_loop(
+        duration_seconds=duration, strategies=strat_list, assets=asset_list
+    )
+
+
 practice_app = typer.Typer(help="Virtual trading on real Polymarket prices")
 app.add_typer(practice_app, name="practice")
+
+
+@practice_app.command("pnl")
+def practice_pnl() -> None:
+    """Bottom-line: are you up or down on the practice account?"""
+    account = load_account()
+    realized = account.total_realized_pnl()
+    risk = account.total_capital_at_risk()
+    equity = account.bankroll + risk
+    total_vs_start = equity - account.starting_bankroll
+    color = "green" if total_vs_start >= 0 else "red"
+    console.print(
+        f"\n[bold]Practice PnL[/bold]\n"
+        f"  Starting bankroll:  ${account.starting_bankroll:,.2f}\n"
+        f"  Cash now:           ${account.bankroll:,.2f}\n"
+        f"  Capital at risk:    ${risk:,.2f}\n"
+        f"  Realized PnL:       ${realized:+,.2f}\n"
+        f"  [bold {color}]Total vs start:     ${total_vs_start:+,.2f}[/bold {color}]\n"
+        f"  [dim](Open positions valued at cost until closed — "
+        f"use `practice status` for per-position detail.)[/dim]\n"
+    )
 
 
 @practice_app.command("status")
