@@ -143,10 +143,14 @@ def run_kalshi_dry_loop(
                     console.print(
                         f"  [green]▶ Kalshi {sig.strategy}: {sig.message}[/]"
                     )
-                    console.print(
-                        f"    [dim]→ open Kalshi app → {m.asset} 15m → "
-                        f"{'Yes' if 'YES' in sig.message else 'see hedge legs'}[/dim]"
-                    )
+                    if sig.strategy == "markov":
+                        hint = f"→ open Kalshi app → {m.asset} 15m → Yes"
+                    else:
+                        hint = (
+                            f"→ open Kalshi app → {m.asset} 15m → "
+                            f"buy the leg named above"
+                        )
+                    console.print(f"    [dim]{hint}[/dim]")
                     if alert:
                         alert_for_signal(
                             alert,

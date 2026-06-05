@@ -9,7 +9,6 @@ from rich.console import Console
 from poly.alerts import AlertConfig, alert_for_signal
 from poly.config import Settings
 from poly.data.live import LiveFeed
-from poly.strategies.hedged_binary import HedgedBinaryStrategy
 from poly.strategies.markov_crypto import MarkovCryptoStrategy
 
 console = Console()
@@ -22,6 +21,16 @@ class DrySignal:
     question: str
     message: str
     would_trade: bool
+
+
+@dataclass
+class _HedgeState:
+    """Per-window memory so hedge alerts are real-time, not backward-looking."""
+
+    leg1_side: Optional[str] = None  # "YES" or "NO" — the leg you'd buy first
+    leg1_price: float = 0.0
+    leg1_tick: int = -1
+    completed: bool = False
 
 
 def _parse_assets(settings: Settings) -> List[str]:
@@ -65,36 +74,107 @@ def evaluate_hedged_dry(
     settings: Settings,
     bankroll: float,
     buy_below: float = 0.45,
+    fee: float = 0.02,
+    leg_fraction: float = 0.05,
+    dip_from: float = 0.50,
 ) -> Optional[DrySignal]:
-    if len(tracker.up_prices) < 2:
+    """
+    Real-time hedge detector.
+
+    Unlike a backward-looking scan, this only flags a leg you can buy *right now*.
+    It walks one window through three actionable states:
+
+      1. GRAB BOTH NOW   — both legs are cheap on the same tick (instant lock).
+      2. GRAB LEG 1 NOW  — one leg *dipped* into cheap territory; buy it, then
+                           watch the other side.
+      3. COMPLETE HEDGE  — you hold leg 1 and the opposite leg is now cheap enough
+                           that buying it locks profit regardless of resolution.
+
+    A leg-1 candidate must have *fallen* into cheap territory (its window high was
+    >= ``dip_from``), so a structurally cheap longshot — e.g. a side that opened at
+    0.20 and stayed there — never trips the alert. State is remembered per window
+    (stored on the tracker), so the alert fires on the tick the opportunity is
+    live, not after it's gone.
+    """
+    ups = tracker.up_prices
+    if not ups:
         return None
-    window = tracker.to_window_series()
-    strategy = HedgedBinaryStrategy(settings, buy_yes_below=buy_below, buy_no_below=buy_below)
-    signal = strategy.evaluate_window(window, bankroll=bankroll)
-    if not signal.filled:
-        up = tracker.up_prices[-1]
-        down = tracker.down_prices[-1] if tracker.down_prices else 1.0 - up
+    downs = tracker.down_prices
+    yes_now = ups[-1]
+    no_now = downs[-1] if downs else 1.0 - yes_now
+    tick = len(ups) - 1
+    asset = tracker.market.asset
+    question = tracker.market.question
+    bet_per_leg = bankroll * leg_fraction
+    breakeven = 1.0 - fee  # total leg cost must stay under this to lock profit
+
+    state = getattr(tracker, "_hedge_state", None)
+    if state is None:
+        state = _HedgeState()
+        setattr(tracker, "_hedge_state", state)
+
+    def watching(msg: str) -> DrySignal:
+        return DrySignal("hedged", asset, question, msg, would_trade=False)
+
+    if state.completed:
+        return watching(
+            f"hedge done this window — sit tight (YES={yes_now:.3f} NO={no_now:.3f})"
+        )
+
+    # State 1: both legs cheap on the SAME tick → grab both immediately.
+    if state.leg1_side is None and (yes_now + no_now) < breakeven:
+        locked = 1.0 - (yes_now + no_now)
+        state.completed = True
         msg = (
-            f"watching — UP={up:.3f} DOWN={down:.3f} "
-            f"(need UP<={buy_below:.2f} then DOWN<={buy_below:.2f})"
+            f"GRAB BOTH NOW — YES @ {yes_now:.3f} + NO @ {no_now:.3f} "
+            f"= {yes_now + no_now:.3f} | locked +{locked:.3f}/share | "
+            f"${bet_per_leg:.2f}/leg"
         )
-        return DrySignal(
-            strategy="hedged",
-            asset=tracker.market.asset,
-            question=tracker.market.question,
-            message=msg,
-            would_trade=False,
+        return DrySignal("hedged", asset, question, msg, would_trade=True)
+
+    # State 2: no leg yet — fire when a side has *dipped* into cheap territory.
+    if state.leg1_side is None:
+        enough_history = len(ups) >= 2
+        yes_high = max(ups)
+        no_high = max(downs) if downs else (1.0 - min(ups))
+        yes_dip = enough_history and yes_now < buy_below and yes_high >= dip_from
+        no_dip = enough_history and no_now < buy_below and no_high >= dip_from
+        if yes_dip or no_dip:
+            if yes_dip and (not no_dip or yes_now <= no_now):
+                state.leg1_side, state.leg1_price = "YES", yes_now
+                leg1_high, wait_side = yes_high, "NO"
+            else:
+                state.leg1_side, state.leg1_price = "NO", no_now
+                leg1_high, wait_side = no_high, "YES"
+            state.leg1_tick = tick
+            msg = (
+                f"GRAB LEG 1 NOW — buy {state.leg1_side} @ {state.leg1_price:.3f} "
+                f"(dipped from {leg1_high:.2f}), "
+                f"then watch {wait_side} to dip < {buy_below:.2f} | ${bet_per_leg:.2f}/leg"
+            )
+            return DrySignal("hedged", asset, question, msg, would_trade=True)
+        return watching(
+            f"watching — YES={yes_now:.3f} NO={no_now:.3f} "
+            f"(need a side to dip < {buy_below:.2f} from >= {dip_from:.2f})"
         )
-    msg = (
-        f"WOULD HEDGE — {signal.reason} | "
-        f"${signal.bet_per_leg_usd:.2f}/leg | locked {signal.locked_profit_per_share:+.3f}/share"
-    )
-    return DrySignal(
-        strategy="hedged",
-        asset=tracker.market.asset,
-        question=tracker.market.question,
-        message=msg,
-        would_trade=True,
+
+    # State 3: holding leg 1 — can we lock it in right now?
+    opp_now = no_now if state.leg1_side == "YES" else yes_now
+    opp_side = "NO" if state.leg1_side == "YES" else "YES"
+    total = state.leg1_price + opp_now
+    if opp_now < buy_below and total < breakeven:
+        locked = 1.0 - total
+        state.completed = True
+        msg = (
+            f"COMPLETE HEDGE NOW — buy {opp_side} @ {opp_now:.3f} "
+            f"(leg1 {state.leg1_side} @ {state.leg1_price:.3f}); total {total:.3f} | "
+            f"locked +{locked:.3f}/share | ${bet_per_leg:.2f}/leg"
+        )
+        return DrySignal("hedged", asset, question, msg, would_trade=True)
+
+    return watching(
+        f"holding leg1 {state.leg1_side} @ {state.leg1_price:.3f} — "
+        f"need {opp_side} <= {buy_below:.2f} (now {opp_now:.3f})"
     )
 
 
