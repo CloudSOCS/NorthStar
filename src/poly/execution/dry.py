@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from rich.console import Console
 
+from poly.alerts import AlertConfig, alert_for_signal
 from poly.config import Settings
 from poly.data.live import LiveFeed
 from poly.strategies.hedged_binary import HedgedBinaryStrategy
@@ -143,6 +144,7 @@ def run_dry_loop(
     settings: Optional[Settings] = None,
     duration_seconds: int = 60,
     strategies: Optional[List[str]] = None,
+    alert: Optional[AlertConfig] = None,
 ) -> None:
     """
     Poll live Polymarket prices and log dry-run signals. Never places orders.
@@ -156,6 +158,17 @@ def run_dry_loop(
         f"[bold]Dry-run[/bold] — read-only Polymarket feed | assets: {', '.join(assets)} | "
         f"poll every {interval}s | strategies: {', '.join(strat_list)}"
     )
+    if alert and alert.any_enabled:
+        channels = [
+            name
+            for name, on in (
+                ("sound", alert.sound),
+                ("notification", alert.notification),
+                ("speech", alert.speech),
+            )
+            if on
+        ]
+        console.print(f"[dim]Alerts on: {', '.join(channels)} when ▶ fires.[/dim]")
     console.print("[dim]No wallet. No orders. Signals only.[/dim]\n")
 
     end = time.time() + duration_seconds
@@ -196,6 +209,14 @@ def run_dry_loop(
                         continue
                     seen_trade_keys.add(key)
                     console.print(f"  [green]▶ {sig.strategy}: {sig.message}[/]")
+                    if alert:
+                        alert_for_signal(
+                            alert,
+                            asset=sig.asset,
+                            strategy=sig.strategy,
+                            message=sig.message,
+                            platform="Polymarket",
+                        )
 
             console.print()
             time.sleep(interval)

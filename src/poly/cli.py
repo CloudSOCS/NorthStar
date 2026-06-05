@@ -6,6 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from poly.config import Settings
+from poly.alerts import AlertConfig
 from poly.clients.clob import ClobClient
 from poly.clients.gamma import GammaClient
 from poly.clients.kalshi import KalshiClient
@@ -206,6 +207,15 @@ def dry(
     assets: str = typer.Option(
         "", help="Override DRY_ASSETS from .env (e.g. BTC,ETH)"
     ),
+    alert: bool = typer.Option(
+        False, "--alert", help="Sound + desktop notification when a ▶ signal fires"
+    ),
+    speak: bool = typer.Option(
+        False, "--speak", help="Also speak the signal out loud (implies --alert)"
+    ),
+    no_sound: bool = typer.Option(
+        False, "--no-sound", help="With --alert, show notification only (mute chime)"
+    ),
 ) -> None:
     """Phase 2: real Polymarket prices, dry-run signals only (no orders)."""
     settings = Settings(poly_mode=ExecutionMode.DRY)
@@ -221,6 +231,14 @@ def dry(
     if not strat_list:
         console.print(f"[red]Unknown strategy: {strategy}[/red]")
         raise typer.Exit(1)
+
+    alert_cfg = None
+    if alert or speak:
+        alert_cfg = AlertConfig(
+            sound=not no_sound,
+            notification=True,
+            speech=speak,
+        )
 
     if duration <= 0:
         signals = run_dry_snapshot(settings=settings, strategies=strat_list)
@@ -238,6 +256,7 @@ def dry(
         settings=settings,
         duration_seconds=duration,
         strategies=strat_list,
+        alert=alert_cfg,
     )
 
 
@@ -369,6 +388,15 @@ def kalshi_dry_cmd(
     ),
     strategy: str = typer.Option("both", help="markov | hedged | both"),
     assets: str = typer.Option("BTC,ETH,SOL,BNB,XRP", help="Comma-separated assets"),
+    alert: bool = typer.Option(
+        False, "--alert", help="Sound + desktop notification when a ▶ signal fires"
+    ),
+    speak: bool = typer.Option(
+        False, "--speak", help="Also speak the signal out loud (implies --alert)"
+    ),
+    no_sound: bool = typer.Option(
+        False, "--no-sound", help="With --alert, show notification only (mute chime)"
+    ),
 ) -> None:
     """Kalshi-only dry-run signals — trade manually in the Kalshi app (US-legal)."""
     strat_map = {
@@ -382,6 +410,14 @@ def kalshi_dry_cmd(
         raise typer.Exit(1)
     asset_list = [a.strip().upper() for a in assets.split(",") if a.strip()]
 
+    alert_cfg = None
+    if alert or speak:
+        alert_cfg = AlertConfig(
+            sound=not no_sound,
+            notification=True,
+            speech=speak,
+        )
+
     if duration <= 0:
         signals = run_kalshi_dry_snapshot(strategies=strat_list, assets=asset_list)
         if not signals:
@@ -394,7 +430,10 @@ def kalshi_dry_cmd(
         return
 
     run_kalshi_dry_loop(
-        duration_seconds=duration, strategies=strat_list, assets=asset_list
+        duration_seconds=duration,
+        strategies=strat_list,
+        assets=asset_list,
+        alert=alert_cfg,
     )
 
 

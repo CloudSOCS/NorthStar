@@ -12,6 +12,7 @@ from typing import List, Optional
 
 from rich.console import Console
 
+from poly.alerts import AlertConfig, alert_for_signal
 from poly.config import Settings
 from poly.data.kalshi_live import KalshiLiveFeed
 from poly.execution.dry import DrySignal, evaluate_hedged_dry, evaluate_markov_dry
@@ -78,6 +79,7 @@ def run_kalshi_dry_loop(
     duration_seconds: int = 120,
     strategies: Optional[List[str]] = None,
     assets: Optional[List[str]] = None,
+    alert: Optional[AlertConfig] = None,
 ) -> None:
     settings = settings or Settings()
     asset_list = _assets(settings, assets)
@@ -88,6 +90,17 @@ def run_kalshi_dry_loop(
         f"[bold]Kalshi dry-run[/bold] — 15m crypto | assets: {', '.join(asset_list)} | "
         f"poll every {interval}s"
     )
+    if alert and alert.any_enabled:
+        channels = [
+            name
+            for name, on in (
+                ("sound", alert.sound),
+                ("notification", alert.notification),
+                ("speech", alert.speech),
+            )
+            if on
+        ]
+        console.print(f"[dim]Alerts on: {', '.join(channels)} when ▶ fires.[/dim]")
     console.print(
         "[dim]No API key. Place trades yourself in the Kalshi app when ▶ appears.[/dim]\n"
     )
@@ -134,6 +147,14 @@ def run_kalshi_dry_loop(
                         f"    [dim]→ open Kalshi app → {m.asset} 15m → "
                         f"{'Yes' if 'YES' in sig.message else 'see hedge legs'}[/dim]"
                     )
+                    if alert:
+                        alert_for_signal(
+                            alert,
+                            asset=sig.asset,
+                            strategy=sig.strategy,
+                            message=sig.message,
+                            platform="Kalshi",
+                        )
 
             console.print()
             time.sleep(interval)
