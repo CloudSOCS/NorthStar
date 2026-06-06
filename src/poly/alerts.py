@@ -74,6 +74,21 @@ def speak(text: str) -> None:
         _run(["say", text])
 
 
+def open_url(url: str) -> None:
+    """Open a URL in the default browser (best-effort, never raises)."""
+    if not url:
+        return
+    if _is_mac() and shutil.which("open"):
+        _run(["open", url])
+        return
+    try:
+        import webbrowser
+
+        webbrowser.open(url)
+    except Exception:
+        pass
+
+
 def fire(config: AlertConfig, title: str, message: str, spoken: str = "") -> None:
     """Trigger every enabled alert channel for one signal."""
     if not config.any_enabled:

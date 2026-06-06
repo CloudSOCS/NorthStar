@@ -12,7 +12,7 @@ from typing import List, Optional
 
 from rich.console import Console
 
-from poly.alerts import AlertConfig, alert_for_signal
+from poly.alerts import AlertConfig, alert_for_signal, open_url
 from poly.config import Settings
 from poly.data.kalshi_live import KalshiLiveFeed
 from poly.execution.dry import DrySignal, evaluate_hedged_dry, evaluate_markov_dry
@@ -80,6 +80,7 @@ def run_kalshi_dry_loop(
     strategies: Optional[List[str]] = None,
     assets: Optional[List[str]] = None,
     alert: Optional[AlertConfig] = None,
+    open_site: bool = False,
 ) -> None:
     settings = settings or Settings()
     asset_list = _assets(settings, assets)
@@ -101,6 +102,10 @@ def run_kalshi_dry_loop(
             if on
         ]
         console.print(f"[dim]Alerts on: {', '.join(channels)} when ▶ fires.[/dim]")
+    if open_site:
+        console.print(
+            "[dim]Auto-open: browser jumps to the Kalshi market when ▶ fires.[/dim]"
+        )
     console.print(
         "[dim]No API key. Place trades yourself in the Kalshi app when ▶ appears.[/dim]\n"
     )
@@ -159,6 +164,10 @@ def run_kalshi_dry_loop(
                             message=sig.message,
                             platform="Kalshi",
                         )
+                    if open_site:
+                        url = m.web_url
+                        console.print(f"    [dim]opening {url}[/dim]")
+                        open_url(url)
 
             console.print()
             time.sleep(interval)

@@ -397,6 +397,9 @@ def kalshi_dry_cmd(
     no_sound: bool = typer.Option(
         False, "--no-sound", help="With --alert, show notification only (mute chime)"
     ),
+    open_site: bool = typer.Option(
+        False, "--open", help="Open the Kalshi market page in your browser when a ▶ fires"
+    ),
 ) -> None:
     """Kalshi-only dry-run signals — trade manually in the Kalshi app (US-legal)."""
     strat_map = {
@@ -434,6 +437,7 @@ def kalshi_dry_cmd(
         strategies=strat_list,
         assets=asset_list,
         alert=alert_cfg,
+        open_site=open_site,
     )
 
 

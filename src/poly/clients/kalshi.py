@@ -66,6 +66,19 @@ class KalshiMarket:
         """Alias for strategies that expect Polymarket-style `.question`."""
         return self.title
 
+    @property
+    def web_url(self) -> str:
+        """Best-effort link to this market's page on kalshi.com.
+
+        The ticker starts with the series (e.g. ``KXBTC15M-26JUN...``); the
+        lowercased series is the first path segment of the public market URL.
+        Lands on the asset's 15m market so you can place the trade by hand.
+        """
+        series = self.ticker.split("-")[0] if self.ticker else ""
+        if not series:
+            return "https://kalshi.com/markets"
+        return f"https://kalshi.com/markets/{series.lower()}"
+
 
 def _f(value: Any, default: float = 0.0) -> float:
     if value is None or value == "":
