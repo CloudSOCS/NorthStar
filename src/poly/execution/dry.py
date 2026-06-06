@@ -37,6 +37,21 @@ def _parse_assets(settings: Settings) -> List[str]:
     return [a.strip().upper() for a in settings.dry_assets.split(",") if a.strip()]
 
 
+def _realized_vol(prices: List[float]) -> float:
+    """Choppiness gauge: std-dev of tick-to-tick changes.
+
+    A smooth one-way drift (like a market gliding to its target) has tiny
+    tick-to-tick moves -> low value. A jagged, whipsawing market -> high value.
+    This is what tells a hedge-able window apart from a calm one.
+    """
+    if len(prices) < 3:
+        return 0.0
+    diffs = [prices[i] - prices[i - 1] for i in range(1, len(prices))]
+    mean = sum(diffs) / len(diffs)
+    var = sum((d - mean) ** 2 for d in diffs) / len(diffs)
+    return var**0.5
+
+
 def evaluate_markov_dry(
     tracker,
     settings: Settings,
@@ -77,6 +92,7 @@ def evaluate_hedged_dry(
     fee: float = 0.02,
     leg_fraction: float = 0.05,
     dip_from: float = 0.50,
+    min_volatility: Optional[float] = None,
 ) -> Optional[DrySignal]:
     """
     Real-time hedge detector.
@@ -95,7 +111,13 @@ def evaluate_hedged_dry(
     0.20 and stayed there — never trips the alert. State is remembered per window
     (stored on the tracker), so the alert fires on the tick the opportunity is
     live, not after it's gone.
+
+    Leg 1 also requires the window to have been *choppy* enough (realized vol >=
+    ``min_volatility``). A gentle one-way drift that glides toward its target can
+    never produce a second cheap leg, so we don't bother flagging it.
     """
+    if min_volatility is None:
+        min_volatility = settings.hedge_min_volatility
     ups = tracker.up_prices
     if not ups:
         return None
@@ -132,9 +154,16 @@ def evaluate_hedged_dry(
         )
         return DrySignal("hedged", asset, question, msg, would_trade=True)
 
-    # State 2: no leg yet — fire when a side has *dipped* into cheap territory.
+    # State 2: no leg yet — fire when a side has *dipped* into cheap territory,
+    # but only if the market has actually been choppy (gentle drifts can't hedge).
     if state.leg1_side is None:
-        enough_history = len(ups) >= 2
+        vol = _realized_vol(ups)
+        enough_history = len(ups) >= max(2, settings.hedge_min_ticks)
+        if min_volatility > 0 and vol < min_volatility:
+            return watching(
+                f"watching — YES={yes_now:.3f} NO={no_now:.3f} "
+                f"(too calm: vol {vol:.3f} < {min_volatility:.3f}, no hedge likely)"
+            )
         yes_high = max(ups)
         no_high = max(downs) if downs else (1.0 - min(ups))
         yes_dip = enough_history and yes_now < buy_below and yes_high >= dip_from

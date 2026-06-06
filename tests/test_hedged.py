@@ -31,46 +31,56 @@ def _hedge(tracker, **kw):
     return evaluate_hedged_dry(tracker, Settings(), bankroll=1000.0, **kw)
 
 
-def test_hedge_leg1_fires_only_on_a_dip():
+def test_hedge_leg1_fires_on_choppy_dip():
     t = _FakeTracker()
-    t.feed(0.55, 0.45)  # YES was a coin-flip+ here (window high 0.55)
-    assert _hedge(t).would_trade is False
-    t.feed(0.40, 0.60)  # YES dipped from 0.55 -> actionable leg 1
+    # Jagged YES path that ends below 0.45 having been above 0.55.
+    for yes in (0.50, 0.62, 0.48, 0.40):
+        t.feed(yes, round(1.0 - yes, 3))
     sig = _hedge(t)
     assert sig.would_trade is True
     assert "GRAB LEG 1" in sig.message and "YES" in sig.message
 
 
-def test_hedge_ignores_structural_longshot():
-    """A side that opens cheap and stays cheap is NOT a hedge leg."""
+def test_hedge_skips_gentle_drift_even_when_it_dips():
+    """The new volatility gate: a smooth glide that dips must NOT fire."""
     t = _FakeTracker()
-    t.feed(0.77, 0.23)  # NO is a cheap longshot, never was >= 0.50
-    assert _hedge(t).would_trade is False
-    t.feed(0.78, 0.22)  # still a longshot, no dip
+    for yes in (0.55, 0.53, 0.51, 0.49, 0.47, 0.44):  # smooth one-way drift
+        t.feed(yes, round(1.0 - yes, 3))
+    sig = _hedge(t)
+    assert sig.would_trade is False
+    assert "too calm" in sig.message
+
+
+def test_hedge_ignores_structural_longshot():
+    """A choppy market whose cheap side never crossed 0.50 is not a hedge leg."""
+    t = _FakeTracker()
+    for yes in (0.75, 0.85, 0.74, 0.82):  # choppy but NO stays a longshot
+        t.feed(yes, round(1.0 - yes, 3))
     assert _hedge(t).would_trade is False
 
 
 def test_hedge_completes_only_when_second_leg_cheap_now():
     t = _FakeTracker()
-    t.feed(0.55, 0.45)
-    t.feed(0.40, 0.60)  # leg1 = YES @ 0.40 (dipped from 0.55)
-    _hedge(t)
-    t.feed(0.62, 0.38)  # opposite (NO) now < 0.45 -> completes
+    for yes in (0.48, 0.40, 0.56, 0.60):  # choppy; ends with NO @ 0.40 dip
+        t.feed(yes, round(1.0 - yes, 3))
+    sig1 = _hedge(t)
+    assert sig1.would_trade is True and "NO" in sig1.message  # leg1 = NO @ 0.40
+    t.feed(0.42, 0.58)  # opposite (YES) now < 0.45 -> completes
     sig = _hedge(t)
     assert sig.would_trade is True
     assert "COMPLETE HEDGE" in sig.message
-    # 0.40 + 0.38 = 0.78 -> locked 0.22
-    assert "+0.220" in sig.message
+    # 0.40 + 0.42 = 0.82 -> locked 0.18
+    assert "+0.180" in sig.message
 
 
 def test_hedge_does_not_fire_after_completed():
     t = _FakeTracker()
-    t.feed(0.55, 0.45)
-    t.feed(0.40, 0.60)
-    _hedge(t)
-    t.feed(0.62, 0.38)
+    for yes in (0.48, 0.40, 0.56, 0.60):
+        t.feed(yes, round(1.0 - yes, 3))
+    _hedge(t)  # leg1
+    t.feed(0.42, 0.58)
     _hedge(t)  # completes here
-    t.feed(0.42, 0.58)  # leg cheap again, but window already hedged
+    t.feed(0.41, 0.59)  # leg cheap again, but window already hedged
     sig = _hedge(t)
     assert sig.would_trade is False
 

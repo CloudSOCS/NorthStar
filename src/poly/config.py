@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     min_arb_edge_bps: int = Field(default=50, alias="MIN_ARB_EDGE_BPS")
     match_auto_threshold: float = Field(default=0.85, alias="MATCH_AUTO_THRESHOLD")
 
+    # Hedged strategy: skip calm markets that can't complete a hedge.
+    # Realized volatility (std of tick-to-tick YES changes) must clear this
+    # before we fire "GRAB LEG 1". Raise it to be pickier; 0 disables the gate.
+    hedge_min_volatility: float = Field(default=0.012, alias="HEDGE_MIN_VOLATILITY")
+    hedge_min_ticks: int = Field(default=4, alias="HEDGE_MIN_TICKS")
+
     # Live-only (optional)
     polygon_private_key: Optional[str] = Field(default=None, alias="POLYGON_PRIVATE_KEY")
     kalshi_api_key: Optional[str] = Field(default=None, alias="KALSHI_API_KEY")
