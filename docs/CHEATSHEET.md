@@ -61,15 +61,19 @@ Always ends with: this is practice only — no live order was placed.
 ```bash
 northstar practice journal
 northstar practice journal --last 5
+northstar practice journal --json
 ```
 Shows recent saved walks (time, asset, YES/NO, spend, edge, hedge). Read-only.
+`--json` prints the same snapshots as JSON (newest first). No order.
 
 ## 8. Replay the last saved lesson
 ```bash
 northstar practice last
 northstar practice last --n 3
+northstar practice last --json
 ```
 Reprints the newest walk(s) in the same Step 1–4 voice. No market fetch. No order.
+`--json` dumps the saved snapshots instead of the teaching panels.
 
 ---
 Reminder: the bot only SUGGESTS. You click Yes/No and enter the amount yourself.

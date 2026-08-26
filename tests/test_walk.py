@@ -20,6 +20,7 @@ from poly.practice.walk import (
     load_journal,
     lose_pnl,
     pair_cost,
+    dump_journal_json,
     quote_from_journal_entry,
     recent_journal_entries,
     tickets_bought,
@@ -205,6 +206,24 @@ def test_recent_journal_entries_newest_first():
     assert recent_journal_entries(entries, last=0)[0]["asset"] == "SOL"
 
 
+def test_dump_journal_json_empty():
+    blob = dump_journal_json([], last=5)
+    assert blob == {"schema_version": 1, "entries": []}
+
+
+def test_dump_journal_json_newest_first_and_sliced():
+    entries = [
+        {"saved_at": "a", "asset": "BTC", "edge": "not ready"},
+        {"saved_at": "b", "asset": "ETH", "edge": 0.10},
+        {"saved_at": "c", "asset": "SOL", "edge": -0.05},
+    ]
+    blob = dump_journal_json(entries, last=2)
+    assert blob["schema_version"] == 1
+    assert [e["asset"] for e in blob["entries"]] == ["SOL", "ETH"]
+    assert blob["entries"][0] is entries[2]
+    assert [e["asset"] for e in entries] == ["BTC", "ETH", "SOL"]
+
+
 def test_quote_from_journal_not_ready():
     entry = {
         "asset": "SOL",
@@ -251,3 +270,99 @@ def test_quote_from_journal_rebuilds_guess_from_edge():
     assert "Step 1" in text
     assert "too cheap" in text.lower()
     assert "Hedge: CHEAP PAIR" in text
+
+
+def _invoke_practice(args, monkeypatch, journal_path):
+    from typer.testing import CliRunner
+
+    from poly.cli import app
+
+    monkeypatch.setenv("NORTHSTAR_WALK_JOURNAL", str(journal_path))
+    return CliRunner().invoke(app, ["practice", *args])
+
+
+def test_practice_journal_json_empty_missing_file(monkeypatch, tmp_path):
+    path = tmp_path / "missing.json"
+    result = _invoke_practice(["journal", "--json"], monkeypatch, path)
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == {"schema_version": 1, "entries": []}
+    assert "No saved walks" not in result.stdout
+    assert not path.exists()
+
+
+def test_practice_last_json_defaults_to_newest_one(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "entries": [
+                    {"saved_at": "a", "asset": "BTC", "edge": "not ready"},
+                    {"saved_at": "b", "asset": "ETH", "edge": 0.10},
+                ],
+            }
+        )
+    )
+    result = _invoke_practice(["last", "--json"], monkeypatch, path)
+    assert result.exit_code == 0
+    blob = json.loads(result.stdout)
+    assert [e["asset"] for e in blob["entries"]] == ["ETH"]
+    assert "NorthStar practice replay" not in result.stdout
+    assert "Step 1" not in result.stdout
+
+
+def test_practice_journal_json_respects_last(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "entries": [
+                    {"saved_at": "a", "asset": "BTC"},
+                    {"saved_at": "b", "asset": "ETH"},
+                    {"saved_at": "c", "asset": "SOL"},
+                ],
+            }
+        )
+    )
+    result = _invoke_practice(["journal", "--last", "2", "--json"], monkeypatch, path)
+    assert result.exit_code == 0
+    blob = json.loads(result.stdout)
+    assert [e["asset"] for e in blob["entries"]] == ["SOL", "ETH"]
+    assert "Practice journal" not in result.stdout
+
+
+def test_practice_last_json_respects_n(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "entries": [
+                    {"saved_at": "a", "asset": "BTC"},
+                    {"saved_at": "b", "asset": "ETH"},
+                    {"saved_at": "c", "asset": "SOL"},
+                ],
+            }
+        )
+    )
+    result = _invoke_practice(["last", "--n", "3", "--json"], monkeypatch, path)
+    assert result.exit_code == 0
+    blob = json.loads(result.stdout)
+    assert [e["asset"] for e in blob["entries"]] == ["SOL", "ETH", "BTC"]
+
+
+def test_practice_journal_without_json_stays_human(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    result = _invoke_practice(["journal"], monkeypatch, path)
+    assert result.exit_code == 0
+    assert "No saved walks yet" in result.stdout
+
+
+def test_practice_json_corrupt_journal_exits_nonzero(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    path.write_text("{not json")
+    result = _invoke_practice(["journal", "--json"], monkeypatch, path)
+    assert result.exit_code == 1
+    assert result.stdout.strip() == ""
+    assert "Could not read journal" in (result.stderr or "")

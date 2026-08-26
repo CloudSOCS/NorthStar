@@ -270,6 +270,14 @@ def recent_journal_entries(entries: List[Dict[str, Any]], last: int) -> List[Dic
     return list(reversed(entries[-n:]))
 
 
+def dump_journal_json(entries: List[Dict[str, Any]], last: int) -> Dict[str, Any]:
+    """Machine-readable view of saved lessons. Newest first. Does not write."""
+    return {
+        "schema_version": JOURNAL_SCHEMA,
+        "entries": recent_journal_entries(entries or [], last),
+    }
+
+
 def append_journal_entry(
     entry: Dict[str, Any],
     path: Optional[Path] = None,

@@ -36,6 +36,7 @@ from poly.practice.walk import (
     format_journal_time,
     format_walk,
     journal_entry,
+    dump_journal_json,
     load_journal,
     load_walk_quote,
     quote_from_journal_entry,
@@ -492,21 +493,38 @@ def practice_walk(
         console.print(f"[dim]{path}[/dim]")
 
 
+def _read_practice_journal(*, as_json: bool):
+    path = default_journal_path()
+    try:
+        return path, load_journal(path)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        msg = f"Could not read journal: {exc}"
+        if as_json:
+            typer.echo(msg, err=True)
+        else:
+            console.print(f"[red]{msg}[/red]")
+        raise typer.Exit(1)
+
+
+def _emit_journal_json(entries, last: int) -> None:
+    print(json.dumps(dump_journal_json(entries, last), indent=2))
+
+
 @practice_app.command("journal")
 def practice_journal(
     last: int = typer.Option(
         5, "--last", help="How many recent lesson snapshots to show"
     ),
+    as_json: bool = typer.Option(
+        False, "--json", help="Print saved lessons as JSON (stdout only)"
+    ),
 ) -> None:
     """Show saved practice walks. Read-only — not a trade."""
-    path = default_journal_path()
-    try:
-        blob = load_journal(path)
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
-        console.print(f"[red]Could not read journal: {exc}[/red]")
-        raise typer.Exit(1)
-
+    path, blob = _read_practice_journal(as_json=as_json)
     entries = blob.get("entries") or []
+    if as_json:
+        _emit_journal_json(entries, last)
+        return
     if not entries:
         console.print("[dim]No saved walks yet. Run: northstar practice walk --save[/dim]")
         console.print("[dim]This is a notebook, not a trade.[/dim]")
@@ -541,16 +559,16 @@ def practice_last(
     n: int = typer.Option(
         1, "--n", help="How many recent lessons to reprint (newest first)"
     ),
+    as_json: bool = typer.Option(
+        False, "--json", help="Print saved lessons as JSON (stdout only)"
+    ),
 ) -> None:
     """Replay saved walks in teaching voice. Read-only — no market fetch."""
-    path = default_journal_path()
-    try:
-        blob = load_journal(path)
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
-        console.print(f"[red]Could not read journal: {exc}[/red]")
-        raise typer.Exit(1)
-
+    _path, blob = _read_practice_journal(as_json=as_json)
     entries = blob.get("entries") or []
+    if as_json:
+        _emit_journal_json(entries, n)
+        return
     if not entries:
         console.print("[dim]No saved walks yet. Run: northstar practice walk --save[/dim]")
         console.print("[dim]This is a notebook, not a trade.[/dim]")
