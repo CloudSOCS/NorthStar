@@ -183,9 +183,65 @@ Buying **both** sides cheap (a hedge) is Step 4. This step is one ticket, one pr
 
 ---
 
-## Step 4 — Hedging (save for last, it's the hardest)
+## Step 4 — Hedging ✅
 
-The trick of buying BOTH sides cheap so you win no matter what.
+A **hedge** is buying **both** sides (YES and NO) cheap enough that you no longer need to guess which answer is right.
+
+### Why buy the other side?
+
+Step 1–3 are one ticket. If you only hold YES, you need YES to win. Buying NO as well is how you **offset** that. You are no longer making a pure win-or-lose bet on the question.
+
+You only do this when **both** tickets are cheap enough that the two prices **add up to less than $1**. Then the winning side still pays $1, and that $1 is more than you paid for the pair.
+
+If the two prices add up to **more than $1**, you lose money no matter who wins. That is not a hedge. That is overpaying for both sides.
+
+### Same $1 either way
+
+One YES ticket + one NO ticket. Exactly one of them pays **$1**. The other pays **$0**.
+
+**Cheap pair:** YES **40¢** + NO **40¢** = **80¢** in.
+
+| If… | You get back | Profit / loss |
+| --- | ------------ | ------------- |
+| YES wins | $1 (YES pays, NO is $0) | **+$20¢** |
+| NO wins  | $1 (NO pays, YES is $0) | **+$20¢** |
+
+Same result either way. You stopped caring who is right.
+
+**Expensive pair:** YES **60¢** + NO **55¢** = **$1.15** in. You still get $1 back. You lose **15¢** either way. Skip it.
+
+### A $2 + $2 example
+
+YES at **40¢**, NO at **40¢**.
+
+- $2 on YES → 5 YES tickets  
+- $2 on NO → 5 NO tickets  
+- **$4** in total  
+
+Five tickets on the winning side pay **$5**. The losing side pays **$0**.
+
+| If… | You get back | Profit / loss |
+| --- | ------------ | ------------- |
+| YES wins | $5 | **+$1** |
+| NO wins  | $5 | **+$1** |
+
+Compare that to Step 2, $2 on YES only at 40¢: win **+$3** or lose **−$2**. The hedge traded that lottery for a smaller **+$1** that does not depend on the answer.
+
+Fees still nibble. Real venues take a cut, so your locked amount will be a little smaller than these numbers.
+
+### A hedge is not edge
+
+Step 3’s edge is “does this **one** ticket look too cheap vs the bot’s guess?” A hedge does **not** create that. Buying both sides does not mean the bot thought YES (or NO) was a good directional buy. It only means the **pair** cost less than $1.
+
+If you do not have a cheap pair, wait. Most of the time the right move is still to wait.
+
+### Quick self-check
+
+You buy one YES at **45¢** and one NO at **45¢**. How much did the pair cost? If YES wins, what do you get back, and what is the profit? Is it the same if NO wins? (90¢ in. Get $1 back. Profit **+10¢**. Yes — same either way.)
+
+### Not live yet
+
+This is still a teaching step. You decide and click (or don’t). Live Kalshi orders are not wired. Practice and dry-run can *show* a hedge; they do not place a real order for you.
 
 ---
 
