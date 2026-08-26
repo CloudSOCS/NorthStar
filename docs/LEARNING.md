@@ -272,6 +272,10 @@ You never need all four on every market. Often you only need Step 2 and then **w
 
 YES is **40¢**. The bot’s guess is **50¢**. You buy **only** YES (no NO). Which steps are you using — and which are you not? (1–3: a ticket, P&L, and a +10¢ edge. Not 4: you still need YES to win.)
 
+To try these four questions on a live Kalshi 15m market (no order is placed):
+
+`northstar practice walk`
+
 ---
 
 ## Golden rules while learning

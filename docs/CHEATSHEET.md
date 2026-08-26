@@ -47,6 +47,14 @@ northstar practice status
 northstar practice pnl
 ```
 
+## 6. Walk a real Kalshi market through Steps 1–4 (no order)
+```bash
+northstar practice walk
+northstar practice walk --asset ETH --spend 2
+```
+Prints ticket price, tiny-size P&L, edge, and a YES+NO hedge check.
+Always ends with: this is practice only — no live order was placed.
+
 ---
 Reminder: the bot only SUGGESTS. You click Yes/No and enter the amount yourself.
 When learning, it's fine to let it fire and NOT buy. Tiny size ($2-$5) when you do.

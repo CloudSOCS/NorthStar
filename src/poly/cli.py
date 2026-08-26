@@ -26,6 +26,7 @@ from poly.practice.account import (
     save_account,
 )
 from poly.practice.runner import run_practice_session
+from poly.practice.walk import format_walk, load_walk_quote
 
 app = typer.Typer(
     name="northstar",
@@ -441,8 +442,31 @@ def kalshi_dry_cmd(
     )
 
 
-practice_app = typer.Typer(help="Virtual trading on real Polymarket prices")
+practice_app = typer.Typer(help="Virtual trading and teaching walk (no live orders)")
 app.add_typer(practice_app, name="practice")
+
+
+@practice_app.command("walk")
+def practice_walk(
+    asset: str = typer.Option("BTC", help="Kalshi 15m asset, e.g. BTC, ETH, SOL"),
+    spend: float = typer.Option(
+        2.0, help="Dollars in for Step 2 (default $2, max $5)"
+    ),
+) -> None:
+    """Walk a live Kalshi 15m market through learning Steps 1–4. No order is placed."""
+    quote = load_walk_quote(asset)
+    if quote is None:
+        console.print(
+            f"[yellow]No active Kalshi 15m market for {asset.upper()}.[/yellow]"
+        )
+        raise typer.Exit(1)
+    console.print(
+        Panel(
+            format_walk(quote, spend),
+            title="NorthStar practice walk",
+            border_style="blue",
+        )
+    )
 
 
 @practice_app.command("pnl")
