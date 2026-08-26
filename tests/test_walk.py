@@ -1,11 +1,16 @@
+import json
+
 from poly.practice.walk import (
     BANNER,
     DEFAULT_SPEND,
     FOOTER,
     MAX_SPEND,
     WalkQuote,
+    append_journal_entry,
     clamp_spend,
+    default_journal_path,
     format_walk,
+    journal_entry,
     lose_pnl,
     pair_cost,
     tickets_bought,
@@ -99,3 +104,68 @@ def test_walk_module_does_not_import_live():
     source = inspect.getsource(walk)
     assert "execution.live" not in source
     assert "run_live_loop" not in source
+    assert "hypothesis_graph" not in source
+
+
+def test_journal_entry_edge_not_ready_and_cheap_pair():
+    quote = WalkQuote(
+        asset="ETH",
+        question="Will ETH be above the strike?",
+        yes_price=0.40,
+        no_price=0.40,
+        model_prob=None,
+        edge=None,
+    )
+    entry = journal_entry(quote, spend=2.0, saved_at="2026-08-26T15:14:00-05:00")
+    assert entry["saved_at"] == "2026-08-26T15:14:00-05:00"
+    assert entry["asset"] == "ETH"
+    assert entry["yes_price"] == 0.40
+    assert entry["no_price"] == 0.40
+    assert entry["spend"] == 2.0
+    assert entry["tickets"] == 5.0
+    assert entry["win_pnl"] == 3.0
+    assert entry["lose_pnl"] == -2.0
+    assert entry["edge"] == "not ready"
+    assert entry["hedge"] == "CHEAP PAIR"
+    assert entry["pair_cost"] == 0.80
+
+
+def test_journal_entry_numeric_edge_and_skip():
+    quote = WalkQuote(
+        asset="BTC",
+        question="BTC up/down",
+        yes_price=0.80,
+        no_price=0.55,
+        model_prob=0.70,
+        edge=-0.10,
+    )
+    entry = journal_entry(quote, spend=2.0)
+    assert entry["edge"] == -0.10
+    assert entry["hedge"] == "SKIP"
+
+
+def test_append_journal_is_opt_in_append_only(tmp_path):
+    path = tmp_path / "walk_journal.json"
+    quote = WalkQuote(
+        asset="SOL",
+        question="SOL",
+        yes_price=0.40,
+        no_price=0.40,
+        model_prob=0.50,
+        edge=0.10,
+    )
+    first = journal_entry(quote, spend=2.0, saved_at="2026-08-26T15:00:00-05:00")
+    append_journal_entry(first, path)
+    second = journal_entry(quote, spend=2.0, saved_at="2026-08-26T15:01:00-05:00")
+    append_journal_entry(second, path)
+    blob = json.loads(path.read_text())
+    assert blob["schema_version"] == 1
+    assert len(blob["entries"]) == 2
+    assert blob["entries"][0]["saved_at"] == "2026-08-26T15:00:00-05:00"
+    assert blob["entries"][1]["saved_at"] == "2026-08-26T15:01:00-05:00"
+
+
+def test_journal_path_uses_env(monkeypatch, tmp_path):
+    target = tmp_path / "custom.json"
+    monkeypatch.setenv("NORTHSTAR_WALK_JOURNAL", str(target))
+    assert default_journal_path() == target

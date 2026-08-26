@@ -276,6 +276,8 @@ To try these four questions on a live Kalshi 15m market (no order is placed):
 
 `northstar practice walk`
 
+Optional: `northstar practice walk --save` writes a local lesson notebook (`~/.poly/walk_journal.json`). That is not a trade.
+
 ---
 
 ## Golden rules while learning

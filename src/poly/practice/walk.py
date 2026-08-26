@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple, Union
+import json
+import os
 import time
 
 from poly.config import Settings
@@ -15,6 +19,8 @@ MAX_SPEND = 5.0
 MIN_EDGE_TO_CARE = 0.03
 FOOTER = "This is practice only — no live order was placed."
 BANNER = "This is a teaching walk of a real market — no order will be placed"
+JOURNAL_SCHEMA = 1
+SAVE_NOTE = "Saved this lesson snapshot — a notebook, not a trade."
 
 
 @dataclass(frozen=True)
@@ -147,6 +153,71 @@ def format_walk(quote: WalkQuote, spend: float) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def default_journal_path() -> Path:
+    override = os.environ.get("NORTHSTAR_WALK_JOURNAL")
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".poly" / "walk_journal.json"
+
+
+def hedge_verdict(yes_price: float, no_price: float) -> str:
+    return "CHEAP PAIR" if pair_cost(yes_price, no_price) < 1.0 else "SKIP"
+
+
+def journal_entry(
+    quote: WalkQuote,
+    spend: float,
+    saved_at: Optional[str] = None,
+) -> Dict[str, Any]:
+    spend, _ = clamp_spend(spend)
+    cost = round(pair_cost(quote.yes_price, quote.no_price), 4)
+    if quote.model_prob is None or quote.edge is None:
+        edge: Union[str, float] = "not ready"
+    else:
+        edge = round(quote.edge, 4)
+    return {
+        "saved_at": saved_at or datetime.now().astimezone().isoformat(timespec="seconds"),
+        "asset": quote.asset,
+        "question": quote.question,
+        "yes_price": round(quote.yes_price, 4),
+        "no_price": round(quote.no_price, 4),
+        "spend": round(spend, 2),
+        "tickets": round(tickets_bought(spend, quote.yes_price), 4),
+        "win_pnl": round(win_pnl(spend, quote.yes_price), 4),
+        "lose_pnl": round(lose_pnl(spend, quote.yes_price), 4),
+        "edge": edge,
+        "hedge": hedge_verdict(quote.yes_price, quote.no_price),
+        "pair_cost": cost,
+    }
+
+
+def _read_journal(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {"schema_version": JOURNAL_SCHEMA, "entries": []}
+    blob = json.loads(path.read_text())
+    if blob.get("schema_version") != JOURNAL_SCHEMA:
+        raise ValueError(f"Unsupported walk journal schema_version: {blob.get('schema_version')}")
+    entries = blob.get("entries")
+    if not isinstance(entries, list):
+        raise ValueError("Walk journal is missing an entries list")
+    return {"schema_version": JOURNAL_SCHEMA, "entries": entries}
+
+
+def append_journal_entry(
+    entry: Dict[str, Any],
+    path: Optional[Path] = None,
+) -> Path:
+    """Append one lesson snapshot. Never writes the Hypothesis Graph."""
+    path = path or default_journal_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    blob = _read_journal(path)
+    blob["entries"].append(entry)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(blob, indent=2) + "\n")
+    tmp.replace(path)
+    return path
 
 
 def load_walk_quote(

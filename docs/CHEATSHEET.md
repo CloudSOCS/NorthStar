@@ -51,8 +51,10 @@ northstar practice pnl
 ```bash
 northstar practice walk
 northstar practice walk --asset ETH --spend 2
+northstar practice walk --save
 ```
 Prints ticket price, tiny-size P&L, edge, and a YES+NO hedge check.
+`--save` appends that snapshot to `~/.poly/walk_journal.json` (a notebook, not a trade).
 Always ends with: this is practice only — no live order was placed.
 
 ---

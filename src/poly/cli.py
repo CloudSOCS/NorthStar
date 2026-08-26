@@ -26,7 +26,7 @@ from poly.practice.account import (
     save_account,
 )
 from poly.practice.runner import run_practice_session
-from poly.practice.walk import format_walk, load_walk_quote
+from poly.practice.walk import SAVE_NOTE, append_journal_entry, format_walk, journal_entry, load_walk_quote
 
 app = typer.Typer(
     name="northstar",
@@ -452,6 +452,11 @@ def practice_walk(
     spend: float = typer.Option(
         2.0, help="Dollars in for Step 2 (default $2, max $5)"
     ),
+    save: bool = typer.Option(
+        False,
+        "--save",
+        help="Append this lesson snapshot to the local walk journal (not a trade)",
+    ),
 ) -> None:
     """Walk a live Kalshi 15m market through learning Steps 1–4. No order is placed."""
     quote = load_walk_quote(asset)
@@ -467,6 +472,10 @@ def practice_walk(
             border_style="blue",
         )
     )
+    if save:
+        path = append_journal_entry(journal_entry(quote, spend))
+        console.print(f"[dim]{SAVE_NOTE}[/dim]")
+        console.print(f"[dim]{path}[/dim]")
 
 
 @practice_app.command("pnl")
