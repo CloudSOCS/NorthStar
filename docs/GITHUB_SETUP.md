@@ -2,7 +2,7 @@
 
 Use this to keep the same code on both Macs (and back it up in the cloud).
 
-This project is **NorthStar**. An older GitHub remote may still be named `poly`; clone it into a folder called `NorthStar` so the local name matches.
+The GitHub repo is **https://github.com/CloudSOCS/NorthStar**.
 
 ## One-time: create the repo on GitHub
 
@@ -13,15 +13,13 @@ This project is **NorthStar**. An older GitHub remote may still be named `poly`;
 5. Do **not** check “Add a README” (you already have code).
 6. Click **Create repository**.
 
-Copy the HTTPS URL, e.g. `https://github.com/YOUR_USERNAME/NorthStar.git`.
-
-If the remote already exists under an older name (for example `poly.git`), keep that URL and clone/push as below, using a local folder named `NorthStar`.
+Copy the HTTPS URL, e.g. `https://github.com/CloudSOCS/NorthStar.git`.
 
 ## One-time: push from the Mac that has the latest code
 
 ```bash
 cd /Volumes/App/NorthStar
-git remote add origin https://github.com/YOUR_USERNAME/NorthStar.git
+git remote add origin https://github.com/CloudSOCS/NorthStar.git
 git branch -M main
 git push -u origin main
 ```
@@ -42,7 +40,7 @@ macOS may save it in Keychain so you only do this once.
 
 ```bash
 cd ~/Projects
-git clone https://github.com/YOUR_USERNAME/NorthStar.git NorthStar
+git clone https://github.com/CloudSOCS/NorthStar.git NorthStar
 cd NorthStar
 python3 -m venv .venv
 source .venv/bin/activate
@@ -74,6 +72,6 @@ pip install -e ".[dev]"
 
 If you add an SSH key to GitHub, use:
 
-`git@github.com:YOUR_USERNAME/NorthStar.git`
+`git@github.com:CloudSOCS/NorthStar.git`
 
 instead of the HTTPS URL.
