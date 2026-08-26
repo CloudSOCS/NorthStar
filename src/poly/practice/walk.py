@@ -19,6 +19,8 @@ MAX_SPEND = 5.0
 MIN_EDGE_TO_CARE = 0.03
 FOOTER = "This is practice only — no live order was placed."
 BANNER = "This is a teaching walk of a real market — no order will be placed"
+REPLAY_BANNER = "This is a notebook replay of a saved lesson — no order will be placed"
+REPLAY_FOOTER = "This is a notebook replay — no live order was placed"
 JOURNAL_SCHEMA = 1
 SAVE_NOTE = "Saved this lesson snapshot — a notebook, not a trade."
 
@@ -71,7 +73,13 @@ def paid_price(ask: Optional[float], mid: float) -> float:
     return mid
 
 
-def format_walk(quote: WalkQuote, spend: float) -> str:
+def format_walk(
+    quote: WalkQuote,
+    spend: float,
+    *,
+    replay: bool = False,
+    saved_at: Optional[str] = None,
+) -> str:
     spend, spend_note = clamp_spend(spend)
     yes = quote.yes_price
     no = quote.no_price
@@ -81,7 +89,12 @@ def format_walk(quote: WalkQuote, spend: float) -> str:
     cost = pair_cost(yes, no)
     cheap = cost < 1.0
 
-    lines = [BANNER, ""]
+    banner = REPLAY_BANNER if replay else BANNER
+    footer = REPLAY_FOOTER if replay else FOOTER
+    lines = [banner, ""]
+    if replay and saved_at:
+        lines.append(f"Saved at: {format_journal_time(saved_at)}")
+        lines.append("")
     if spend_note:
         lines.append(spend_note)
         lines.append("")
@@ -149,7 +162,7 @@ def format_walk(quote: WalkQuote, spend: float) -> str:
     lines.extend(
         [
             "",
-            FOOTER,
+            footer,
         ]
     )
     return "\n".join(lines)
@@ -191,6 +204,29 @@ def journal_entry(
         "hedge": hedge_verdict(quote.yes_price, quote.no_price),
         "pair_cost": cost,
     }
+
+
+def quote_from_journal_entry(entry: Dict[str, Any]) -> Tuple[WalkQuote, float]:
+    """Rebuild a WalkQuote from a saved snapshot. Does not fetch a market."""
+    yes = float(entry.get("yes_price") or 0.0)
+    no = float(entry.get("no_price") or 0.0)
+    spend = float(entry.get("spend") or DEFAULT_SPEND)
+    raw_edge = entry.get("edge")
+    if raw_edge == "not ready" or raw_edge is None:
+        model_prob: Optional[float] = None
+        edge: Optional[float] = None
+    else:
+        edge = float(raw_edge)
+        model_prob = yes + edge
+    quote = WalkQuote(
+        asset=str(entry.get("asset") or ""),
+        question=str(entry.get("question") or ""),
+        yes_price=yes,
+        no_price=no,
+        model_prob=model_prob,
+        edge=edge,
+    )
+    return quote, spend
 
 
 def _read_journal(path: Path) -> Dict[str, Any]:

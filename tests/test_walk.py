@@ -1,10 +1,14 @@
 import json
 
+import pytest
+
 from poly.practice.walk import (
     BANNER,
     DEFAULT_SPEND,
     FOOTER,
     MAX_SPEND,
+    REPLAY_BANNER,
+    REPLAY_FOOTER,
     WalkQuote,
     append_journal_entry,
     clamp_spend,
@@ -16,6 +20,7 @@ from poly.practice.walk import (
     load_journal,
     lose_pnl,
     pair_cost,
+    quote_from_journal_entry,
     recent_journal_entries,
     tickets_bought,
     win_pnl,
@@ -198,3 +203,51 @@ def test_recent_journal_entries_newest_first():
     rows = recent_journal_entries(entries, last=2)
     assert [r["asset"] for r in rows] == ["SOL", "ETH"]
     assert recent_journal_entries(entries, last=0)[0]["asset"] == "SOL"
+
+
+def test_quote_from_journal_not_ready():
+    entry = {
+        "asset": "SOL",
+        "question": "SOL",
+        "yes_price": 0.50,
+        "no_price": 0.50,
+        "spend": 2.0,
+        "edge": "not ready",
+        "hedge": "SKIP",
+    }
+    quote, spend = quote_from_journal_entry(entry)
+    assert spend == 2.0
+    assert quote.model_prob is None
+    assert quote.edge is None
+    text = format_walk(quote, spend, replay=True, saved_at="2026-08-26T12:00:00-05:00")
+    assert REPLAY_BANNER in text
+    assert REPLAY_FOOTER in text
+    assert "Guess: not ready" in text
+    assert BANNER not in text
+    assert FOOTER not in text
+
+
+def test_quote_from_journal_rebuilds_guess_from_edge():
+    entry = {
+        "asset": "ETH",
+        "question": "Will ETH be above the strike?",
+        "yes_price": 0.40,
+        "no_price": 0.40,
+        "spend": 2.0,
+        "edge": 0.10,
+        "hedge": "CHEAP PAIR",
+    }
+    quote, spend = quote_from_journal_entry(entry)
+    assert quote.model_prob == pytest.approx(0.50)
+    assert quote.edge == pytest.approx(0.10)
+    text = format_walk(
+        quote, spend, replay=True, saved_at="2026-08-26T15:14:00-05:00"
+    )
+    assert REPLAY_BANNER in text
+    assert REPLAY_FOOTER in text
+    assert BANNER not in text
+    assert FOOTER not in text
+    assert "Saved at: 2026-08-26 15:14" in text
+    assert "Step 1" in text
+    assert "too cheap" in text.lower()
+    assert "Hedge: CHEAP PAIR" in text

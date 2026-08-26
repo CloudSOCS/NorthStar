@@ -38,6 +38,7 @@ from poly.practice.walk import (
     journal_entry,
     load_journal,
     load_walk_quote,
+    quote_from_journal_entry,
     recent_journal_entries,
 )
 
@@ -533,6 +534,42 @@ def practice_journal(
     console.print(table)
     console.print(f"[dim]{path}[/dim]")
     console.print("[dim]This is a notebook, not a trade.[/dim]")
+
+
+@practice_app.command("last")
+def practice_last(
+    n: int = typer.Option(
+        1, "--n", help="How many recent lessons to reprint (newest first)"
+    ),
+) -> None:
+    """Replay saved walks in teaching voice. Read-only — no market fetch."""
+    path = default_journal_path()
+    try:
+        blob = load_journal(path)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        console.print(f"[red]Could not read journal: {exc}[/red]")
+        raise typer.Exit(1)
+
+    entries = blob.get("entries") or []
+    if not entries:
+        console.print("[dim]No saved walks yet. Run: northstar practice walk --save[/dim]")
+        console.print("[dim]This is a notebook, not a trade.[/dim]")
+        return
+
+    for entry in recent_journal_entries(entries, n):
+        quote, spend = quote_from_journal_entry(entry)
+        console.print(
+            Panel(
+                format_walk(
+                    quote,
+                    spend,
+                    replay=True,
+                    saved_at=str(entry.get("saved_at") or ""),
+                ),
+                title="NorthStar practice replay",
+                border_style="blue",
+            )
+        )
 
 
 @practice_app.command("pnl")

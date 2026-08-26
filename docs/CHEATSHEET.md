@@ -64,6 +64,13 @@ northstar practice journal --last 5
 ```
 Shows recent saved walks (time, asset, YES/NO, spend, edge, hedge). Read-only.
 
+## 8. Replay the last saved lesson
+```bash
+northstar practice last
+northstar practice last --n 3
+```
+Reprints the newest walk(s) in the same Step 1–4 voice. No market fetch. No order.
+
 ---
 Reminder: the bot only SUGGESTS. You click Yes/No and enter the amount yourself.
 When learning, it's fine to let it fire and NOT buy. Tiny size ($2-$5) when you do.
