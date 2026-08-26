@@ -1,0 +1,26 @@
+{
+  "candidate": {"name": "tema_cross", "params": null},
+  "registry": "spot",
+  "window_scores": [
+    {
+      "window": "is",
+      "mean_sharpe": 0.4,
+      "mean_bar_sharpe": 0.1,
+      "mean_ddadj": 0.2,
+      "mean_bar_ddadj": 0.1,
+      "scored_datasets": 6,
+      "verdict": "pass",
+      "liquidated_legs": 0
+    },
+    {
+      "window": "oos",
+      "mean_sharpe": -0.2,
+      "mean_bar_sharpe": 0.1,
+      "mean_ddadj": -0.3,
+      "mean_bar_ddadj": 0.05,
+      "scored_datasets": 6,
+      "verdict": "fail",
+      "liquidated_legs": 0
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "registry": "both",
+  "direction": "long",
+  "rows": [
+    {
+      "strategy": "mean_reversion",
+      "registry": "spot",
+      "trades": 487,
+      "trades_per_year": 82.9,
+      "mean_gross_ret": -17.58,
+      "mean_net_ret": -26.87,
+      "fee_drag_pp": 9.30,
+      "mean_net_sharpe": -1.51,
+      "n_liquidated": 0,
+      "verdict": "deprecate"
+    },
+    {
+      "strategy": "regime_adaptive",
+      "registry": "spot",
+      "trades": 495,
+      "trades_per_year": 84.3,
+      "mean_gross_ret": 3.96,
+      "mean_net_ret": -8.46,
+      "fee_drag_pp": 12.43,
+      "mean_net_sharpe": -0.94,
+      "n_liquidated": 0,
+      "verdict": "graduate_m1"
+    },
+    {
+      "strategy": "mean_reversion_pro",
+      "registry": "spot",
+      "trades": 18,
+      "trades_per_year": 3.1,
+      "mean_gross_ret": -2.73,
+      "mean_net_ret": -3.13,
+      "fee_drag_pp": 0.40,
+      "mean_net_sharpe": -0.04,
+      "n_liquidated": 0,
+      "verdict": "unscreened_short"
+    },
+    {
+      "strategy": "sma_crossover",
+      "registry": "spot",
+      "trades": 10,
+      "trades_per_year": 2.0,
+      "mean_gross_ret": 1.0,
+      "mean_net_ret": 0.5,
+      "fee_drag_pp": 0.5,
+      "mean_net_sharpe": 0.2,
+      "n_liquidated": 2,
+      "verdict": "healthy"
+    },
+    {
+      "strategy": "breakout",
+      "registry": "spot",
+      "trades": 120,
+      "trades_per_year": 24.0,
+      "mean_gross_ret": 4.5,
+      "mean_net_ret": 2.1,
+      "fee_drag_pp": 2.4,
+      "mean_net_sharpe": 0.85,
+      "n_liquidated": 0,
+      "verdict": "healthy"
+    }
+  ]
+}

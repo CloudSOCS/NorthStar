@@ -31,5 +31,5 @@ poly = "poly.cli:app"
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
+testpaths = ["tests", "agents"]
+pythonpath = ["src", "."]
