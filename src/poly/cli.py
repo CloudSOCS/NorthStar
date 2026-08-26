@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -26,7 +28,18 @@ from poly.practice.account import (
     save_account,
 )
 from poly.practice.runner import run_practice_session
-from poly.practice.walk import SAVE_NOTE, append_journal_entry, format_walk, journal_entry, load_walk_quote
+from poly.practice.walk import (
+    SAVE_NOTE,
+    append_journal_entry,
+    default_journal_path,
+    format_journal_edge,
+    format_journal_time,
+    format_walk,
+    journal_entry,
+    load_journal,
+    load_walk_quote,
+    recent_journal_entries,
+)
 
 app = typer.Typer(
     name="northstar",
@@ -476,6 +489,50 @@ def practice_walk(
         path = append_journal_entry(journal_entry(quote, spend))
         console.print(f"[dim]{SAVE_NOTE}[/dim]")
         console.print(f"[dim]{path}[/dim]")
+
+
+@practice_app.command("journal")
+def practice_journal(
+    last: int = typer.Option(
+        5, "--last", help="How many recent lesson snapshots to show"
+    ),
+) -> None:
+    """Show saved practice walks. Read-only — not a trade."""
+    path = default_journal_path()
+    try:
+        blob = load_journal(path)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        console.print(f"[red]Could not read journal: {exc}[/red]")
+        raise typer.Exit(1)
+
+    entries = blob.get("entries") or []
+    if not entries:
+        console.print("[dim]No saved walks yet. Run: northstar practice walk --save[/dim]")
+        console.print("[dim]This is a notebook, not a trade.[/dim]")
+        return
+
+    rows = recent_journal_entries(entries, last)
+    table = Table(title="Practice journal (lessons, not trades)")
+    table.add_column("Time")
+    table.add_column("Asset", style="cyan")
+    table.add_column("YES", justify="right")
+    table.add_column("NO", justify="right")
+    table.add_column("Spend", justify="right")
+    table.add_column("Edge")
+    table.add_column("Hedge")
+    for e in rows:
+        table.add_row(
+            format_journal_time(str(e.get("saved_at", ""))),
+            str(e.get("asset", "")),
+            f"{float(e.get('yes_price', 0)):.2f}",
+            f"{float(e.get('no_price', 0)):.2f}",
+            f"${float(e.get('spend', 0)):.2f}",
+            format_journal_edge(e.get("edge")),
+            str(e.get("hedge", "")),
+        )
+    console.print(table)
+    console.print(f"[dim]{path}[/dim]")
+    console.print("[dim]This is a notebook, not a trade.[/dim]")
 
 
 @practice_app.command("pnl")

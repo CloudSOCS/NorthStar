@@ -57,6 +57,13 @@ Prints ticket price, tiny-size P&L, edge, and a YES+NO hedge check.
 `--save` appends that snapshot to `~/.poly/walk_journal.json` (a notebook, not a trade).
 Always ends with: this is practice only — no live order was placed.
 
+## 7. Read the practice journal
+```bash
+northstar practice journal
+northstar practice journal --last 5
+```
+Shows recent saved walks (time, asset, YES/NO, spend, edge, hedge). Read-only.
+
 ---
 Reminder: the bot only SUGGESTS. You click Yes/No and enter the amount yourself.
 When learning, it's fine to let it fire and NOT buy. Tiny size ($2-$5) when you do.

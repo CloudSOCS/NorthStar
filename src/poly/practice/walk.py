@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import json
 import os
 import time
@@ -203,6 +203,35 @@ def _read_journal(path: Path) -> Dict[str, Any]:
     if not isinstance(entries, list):
         raise ValueError("Walk journal is missing an entries list")
     return {"schema_version": JOURNAL_SCHEMA, "entries": entries}
+
+
+def load_journal(path: Optional[Path] = None) -> Dict[str, Any]:
+    """Read-only load. Missing file → empty entries. Never writes."""
+    return _read_journal(path or default_journal_path())
+
+
+def clamp_last(n: int) -> int:
+    return 1 if n < 1 else n
+
+
+def format_journal_time(saved_at: str) -> str:
+    raw = str(saved_at).replace("T", " ")
+    return raw[:16] if len(raw) >= 16 else raw
+
+
+def format_journal_edge(edge: Any) -> str:
+    if edge == "not ready" or edge is None:
+        return "not ready"
+    try:
+        return f"{float(edge):+.2f}"
+    except (TypeError, ValueError):
+        return "not ready"
+
+
+def recent_journal_entries(entries: List[Dict[str, Any]], last: int) -> List[Dict[str, Any]]:
+    """Newest first, at most `last` snapshots."""
+    n = clamp_last(last)
+    return list(reversed(entries[-n:]))
 
 
 def append_journal_entry(

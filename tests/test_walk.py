@@ -9,10 +9,14 @@ from poly.practice.walk import (
     append_journal_entry,
     clamp_spend,
     default_journal_path,
+    format_journal_edge,
+    format_journal_time,
     format_walk,
     journal_entry,
+    load_journal,
     lose_pnl,
     pair_cost,
+    recent_journal_entries,
     tickets_bought,
     win_pnl,
 )
@@ -169,3 +173,28 @@ def test_journal_path_uses_env(monkeypatch, tmp_path):
     target = tmp_path / "custom.json"
     monkeypatch.setenv("NORTHSTAR_WALK_JOURNAL", str(target))
     assert default_journal_path() == target
+
+
+def test_load_journal_missing_file_does_not_create(tmp_path):
+    path = tmp_path / "missing.json"
+    blob = load_journal(path)
+    assert blob["entries"] == []
+    assert not path.exists()
+
+
+def test_format_journal_cells():
+    assert format_journal_time("2026-08-26T15:14:00-05:00") == "2026-08-26 15:14"
+    assert format_journal_edge("not ready") == "not ready"
+    assert format_journal_edge(-0.23) == "-0.23"
+    assert format_journal_edge(0.10) == "+0.10"
+
+
+def test_recent_journal_entries_newest_first():
+    entries = [
+        {"saved_at": "a", "asset": "BTC"},
+        {"saved_at": "b", "asset": "ETH"},
+        {"saved_at": "c", "asset": "SOL"},
+    ]
+    rows = recent_journal_entries(entries, last=2)
+    assert [r["asset"] for r in rows] == ["SOL", "ETH"]
+    assert recent_journal_entries(entries, last=0)[0]["asset"] == "SOL"
