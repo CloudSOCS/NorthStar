@@ -1,6 +1,6 @@
-# poly
+# NorthStar
 
-A **beginner-friendly** Polymarket trading toolkit inspired by two quant threads:
+A **beginner-friendly** Polymarket/Kalshi trading toolkit inspired by two quant threads:
 
 | Source | Idea |
 |--------|------|
@@ -8,6 +8,8 @@ A **beginner-friendly** Polymarket trading toolkit inspired by two quant threads
 | [@ridark_eth](https://x.com/ridark_eth/status/2055979590435115022) | **Cross-market stat arb** (Polymarket ↔ Kalshi) when the same event is mispriced |
 
 You will grow through **three modes** on purpose — never jump to live until paper and dry-run feel boring.
+
+The CLI command is `northstar` (`poly` still works as an alias). The Python package path remains `src/poly/` until a later rename.
 
 ## Roadmap (how we build slowly)
 
@@ -18,12 +20,12 @@ You will grow through **three modes** on purpose — never jump to live until pa
 - Kelly fraction caps how much you risk per bet
 
 ```bash
-cd ~/Projects/poly
+cd /Volumes/App/NorthStar
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-poly paper --windows 200
-poly explain   # plain-English walkthrough of one decision
+northstar paper --windows 200
+northstar explain   # plain-English walkthrough of one decision
 ```
 
 ### Phase 1.5 — Hedged YES+NO (Gabagool-style)
@@ -33,7 +35,7 @@ poly explain   # plain-English walkthrough of one decision
 - Inspired by the [Gabagool bot](https://github.com/satyasumn7/Polymarket-Trading-Bot-Gabagool)
 
 ```bash
-poly hedged --windows 150
+northstar hedged --windows 150
 ```
 
 ### Phase 2 — Dry-run ✅
@@ -42,11 +44,11 @@ Real Polymarket **Gamma + CLOB** prices. Logs signals only — **no wallet, no o
 
 ```bash
 cp .env.example .env   # optional: set POLY_MODE=dry
-poly markets                    # list active 5m BTC/ETH/SOL markets
-poly dry --duration 0           # one snapshot of signals
-poly dry --duration 120         # poll 2 minutes (every 5s)
-poly dry --strategy markov      # Markov only
-poly dry --strategy hedged      # hedged only
+northstar markets                    # list active 5m BTC/ETH/SOL markets
+northstar dry --duration 0           # one snapshot of signals
+northstar dry --duration 120         # poll 2 minutes (every 5s)
+northstar dry --strategy markov      # Markov only
+northstar dry --strategy hedged      # hedged only
 ```
 
 APIs used (all public, read-only):
@@ -62,19 +64,19 @@ Live Polymarket prices, **virtual money**. Persistent account in `~/.poly/practi
 
 ```bash
 # Fresh virtual $1k (add -y to skip confirmation)
-poly practice reset --bankroll 1000 -y
+northstar practice reset --bankroll 1000 -y
 
 # 5-minute live dashboard with auto-trade
-poly practice run --duration 300
+northstar practice run --duration 300
 
 # Watch only — no auto-trades
-poly practice run --duration 300 --manual
+northstar practice run --duration 300 --manual
 
 # Manual buy $25 of ETH UP (run in another terminal while dashboard runs)
-poly practice buy ETH UP 25
+northstar practice buy ETH UP 25
 
-poly practice status
-poly practice close POSITION_ID
+northstar practice status
+northstar practice close POSITION_ID
 ```
 
 The dashboard shows live UP/DOWN mids, your open positions with mark-to-market PnL,
@@ -85,12 +87,12 @@ and auto-settles positions when their 5m markets close on Polymarket.
 Public Kalshi market data (no API key needed) for the same crypto assets.
 
 ```bash
-poly kalshi                            # active 15m BTC/ETH/SOL Kalshi markets
-poly cross-arb                         # Polymarket vs Kalshi side-by-side
-poly cross-arb --min-edge-bps 50 --fee-bps 30
+northstar kalshi                            # active 15m BTC/ETH/SOL Kalshi markets
+northstar cross-arb                         # Polymarket vs Kalshi side-by-side
+northstar cross-arb --min-edge-bps 50 --fee-bps 30
 ```
 
-Kalshi rate-limits burst traffic. Run **`poly cross-arb` alone** (it includes both
+Kalshi rate-limits burst traffic. Run **`northstar cross-arb` alone** (it includes both
 sides). If you see `429 Too Many Requests`, wait ~10 seconds and retry once.
 
 Note: Polymarket's 5-minute windows and Kalshi's 15-minute windows resolve at
@@ -103,14 +105,14 @@ markets (or with manual time alignment).
 Signals for **Kalshi 15m** markets — the platform you can trade today.
 
 ```bash
-poly kalshi-dry
-poly kalshi-dry --duration 300
+northstar kalshi-dry
+northstar kalshi-dry --duration 300
 ```
 
 Green **▶** = open Kalshi app and place the trade manually. See [docs/KALSHI_SETUP.md](docs/KALSHI_SETUP.md).
 
 ```bash
-poly practice pnl    # quick up/down on virtual account
+northstar practice pnl    # quick up/down on virtual account
 ```
 
 ### Phase 3 — Live Kalshi orders (next)
@@ -132,29 +134,30 @@ poly practice pnl    # quick up/down on virtual account
 ## Project layout
 
 ```
-src/poly/
-  models/       markov, kelly, edge math
-  strategies/   markov_crypto (active), cross_arb (stub)
-  execution/    paper (active), dry + live (stubs)
-  data/         sample generators for learning
+src/poly/          Python package (name unchanged for now)
+  models/          markov, kelly, edge math
+  strategies/      markov_crypto (active), cross_arb (stub)
+  execution/       paper (active), dry + live (stubs)
+  data/            sample generators for learning
+agents/            Hypothesis Graph research memory (append-only)
 ```
 
 ## Commands
 
 | Command | What it does |
 |---------|----------------|
-| `poly paper` | Markov+Kelly directional paper backtest |
-| `poly hedged` | Hedged YES+NO paper backtest (direction-neutral) |
-| `poly explain` | Step-by-step explanation of one Markov trade decision |
-| `poly markets` | List live 5m Up/Down markets (Polymarket Gamma) |
-| `poly kalshi` | List live 15m crypto markets (Kalshi) |
-| `poly kalshi-dry` | Kalshi-only signals (trade manually in app) |
-| `poly cross-arb` | Polymarket vs Kalshi price comparison |
-| `poly practice pnl` | Quick practice account up/down |
-| `poly dry` | Real prices, dry-run signals (no orders) |
-| `poly practice run` | Live dashboard with virtual bankroll |
-| `poly practice buy / close / status / reset` | Manage your practice account |
-| `poly status` | Show current config and which phase is wired |
+| `northstar paper` | Markov+Kelly directional paper backtest |
+| `northstar hedged` | Hedged YES+NO paper backtest (direction-neutral) |
+| `northstar explain` | Step-by-step explanation of one Markov trade decision |
+| `northstar markets` | List live 5m Up/Down markets (Polymarket Gamma) |
+| `northstar kalshi` | List live 15m crypto markets (Kalshi) |
+| `northstar kalshi-dry` | Kalshi-only signals (trade manually in app) |
+| `northstar cross-arb` | Polymarket vs Kalshi price comparison |
+| `northstar practice pnl` | Quick practice account up/down |
+| `northstar dry` | Real prices, dry-run signals (no orders) |
+| `northstar practice run` | Live dashboard with virtual bankroll |
+| `northstar practice buy / close / status / reset` | Manage your practice account |
+| `northstar status` | Show current config and which phase is wired |
 
 ## Safety
 

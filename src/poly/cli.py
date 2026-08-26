@@ -28,8 +28,8 @@ from poly.practice.account import (
 from poly.practice.runner import run_practice_session
 
 app = typer.Typer(
-    name="poly",
-    help="Polymarket quant toolkit — paper → dry → live",
+    name="northstar",
+    help="NorthStar — Polymarket/Kalshi quant toolkit — paper → dry → live",
     no_args_is_help=True,
 )
 console = Console()
@@ -108,7 +108,7 @@ def explain() -> None:
         "",
         f"[bold]Decision[/bold]: {signal.decision.reason}",
     ]
-    console.print(Panel("\n".join(lines), title="How poly decides one trade", border_style="blue"))
+    console.print(Panel("\n".join(lines), title="How NorthStar decides one trade", border_style="blue"))
 
 
 @app.command()
@@ -245,7 +245,7 @@ def dry(
         if not signals:
             console.print(
                 "[yellow]No signals yet — need a few price ticks for Markov, "
-                "or prices outside entry bands. Try: poly dry --duration 30[/yellow]"
+                "or prices outside entry bands. Try: northstar dry --duration 30[/yellow]"
             )
         for sig in signals:
             style = "green" if sig.would_trade else "dim"
@@ -318,7 +318,7 @@ def cross_arb(
         except Exception as e:
             console.print(f"[red]Kalshi fetch failed: {e}[/red]")
             console.print(
-                "[dim]Tip: run only `poly cross-arb` (not `poly kalshi` right before). "
+                "[dim]Tip: run only `northstar cross-arb` (not `northstar kalshi` right before). "
                 "If you hit 429, wait 10 seconds and retry.[/dim]"
             )
             raise typer.Exit(1)
@@ -425,7 +425,7 @@ def kalshi_dry_cmd(
         signals = run_kalshi_dry_snapshot(strategies=strat_list, assets=asset_list)
         if not signals:
             console.print(
-                "[dim]No trade signals yet. Run: poly kalshi-dry --duration 120[/dim]"
+                "[dim]No trade signals yet. Run: northstar kalshi-dry --duration 120[/dim]"
             )
         for sig in signals:
             style = "green" if sig.would_trade else "dim"
@@ -596,7 +596,7 @@ def practice_buy(
 
 @practice_app.command("close")
 def practice_close(
-    position_id: str = typer.Argument(..., help="Position ID from `poly practice status`"),
+    position_id: str = typer.Argument(..., help="Position ID from `northstar practice status`"),
 ) -> None:
     """Close an open position at the current mid price (no real fill, just practice)."""
     account = load_account()
@@ -672,7 +672,7 @@ def status() -> None:
     settings = Settings()
     mode = describe_mode(settings)
 
-    table = Table(title="poly status")
+    table = Table(title="NorthStar status")
     table.add_column("Setting")
     table.add_column("Value")
     table.add_row("Mode", mode.mode.value)

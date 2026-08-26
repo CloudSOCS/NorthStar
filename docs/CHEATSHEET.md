@@ -1,4 +1,4 @@
-# Poly Cheat Sheet (copy & paste)
+# NorthStar Cheat Sheet (copy & paste)
 
 ## 0. Before you start (once per session)
 Log into https://kalshi.com in your browser, so the auto-opened page lets you trade.
@@ -6,9 +6,9 @@ No VPN while on Kalshi.
 
 ## 1. Start the watcher (the main one)
 ```bash
-cd ~/Projects/poly
+cd /Volumes/App/NorthStar
 source .venv/bin/activate
-poly kalshi-dry --duration 600 --strategy both --alert --speak --open
+northstar kalshi-dry --duration 600 --strategy both --alert --speak --open
 ```
 
 What the flags do:
@@ -21,13 +21,13 @@ What the flags do:
 ## 2. Quieter versions (pick one)
 ```bash
 # Markov only, just a chime + browser
-poly kalshi-dry --duration 600 --strategy markov --alert --open
+northstar kalshi-dry --duration 600 --strategy markov --alert --open
 
 # Notification only, no sound
-poly kalshi-dry --duration 600 --strategy both --alert --no-sound
+northstar kalshi-dry --duration 600 --strategy both --alert --no-sound
 
 # Just watch, no alarms
-poly kalshi-dry --duration 600 --strategy both
+northstar kalshi-dry --duration 600 --strategy both
 ```
 
 ## 3. Test that alarms/browser work (no waiting)
@@ -37,14 +37,14 @@ python -c "from poly.alerts import open_url; open_url('https://kalshi.com/market
 
 ## 4. Sync latest code (run on each Mac)
 ```bash
-cd ~/Projects/poly
+cd /Volumes/App/NorthStar
 git pull origin main
 ```
 
 ## 5. Check practice account (fake money)
 ```bash
-poly practice status
-poly practice pnl
+northstar practice status
+northstar practice pnl
 ```
 
 ---

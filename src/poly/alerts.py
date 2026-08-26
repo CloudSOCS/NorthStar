@@ -107,7 +107,7 @@ def alert_for_signal(
     asset: str,
     strategy: str,
     message: str,
-    platform: str = "poly",
+    platform: str = "NorthStar",
 ) -> None:
     """Chime/notify/speak for a dry-run trade signal (markov or hedged)."""
     if "WOULD BUY YES" in message or "BUY YES" in message:

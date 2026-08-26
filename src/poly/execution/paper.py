@@ -114,7 +114,7 @@ def run_paper_backtest(
 
 
 def pick_explanation_window(seed: int = 7) -> tuple[WindowSeries, TradeSignal]:
-    """One window + signal for the `poly explain` command."""
+    """One window + signal for the `northstar explain` command."""
     windows = generate_paper_windows(n_windows=20, seed=seed)
     window = windows[10]
     signal = MarkovCryptoStrategy().evaluate_window(window)
