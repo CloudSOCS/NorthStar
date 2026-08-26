@@ -245,6 +245,35 @@ This is still a teaching step. You decide and click (or don’t). Live Kalshi or
 
 ---
 
+## How the four steps fit ✅
+
+Read these in order. They are four different questions, not four ways to say “buy.”
+
+| Step | Question | One line |
+| ---- | -------- | -------- |
+| 1 | What am I buying? | A YES or NO ticket. Winner pays **$1**. Loser pays **$0**. |
+| 2 | What do I make or lose? | **Win** = `$1 − price`. **Lose** = `price`. Do this *before* you click. |
+| 3 | Is this a good *price*? | **Edge** = bot’s guess − crowd’s price. Too cheap vs too expensive. Not locked profit. |
+| 4 | Do I need to guess the answer? | A **hedge** is both sides cheap (pair under **$1**). Same dollars either way. Not edge. |
+
+**One ticket** (Steps 1–3): you care who is right. Check P&L, then ask whether the price looks too cheap. A positive edge still loses if the answer is wrong.
+
+**Both sides** (Step 4): you stop caring who is right, *if* the pair is cheap enough. If the pair costs more than $1, skip it.
+
+You never need all four on every market. Often you only need Step 2 and then **wait**.
+
+### What this is not
+
+- Not a live order. Kalshi live placement is still unwired. The bot *suggests*. You click, or you don’t.
+- Not a promise. Edge is an opinion. A hedge only helps when the pair is actually cheap.
+- Not a reason to always trade. Tiny gap, no cheap pair, unclear P&L → wait.
+
+### Quick self-check
+
+YES is **40¢**. The bot’s guess is **50¢**. You buy **only** YES (no NO). Which steps are you using — and which are you not? (1–3: a ticket, P&L, and a +10¢ edge. Not 4: you still need YES to win.)
+
+---
+
 ## Golden rules while learning
 
 - No money until a concept actually clicks. "I need to learn first" is the
