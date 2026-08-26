@@ -14,6 +14,7 @@ DEFAULT_SPEND = 2.0
 MAX_SPEND = 5.0
 MIN_EDGE_TO_CARE = 0.03
 FOOTER = "This is practice only — no live order was placed."
+BANNER = "This is a teaching walk of a real market — no order will be placed"
 
 
 @dataclass(frozen=True)
@@ -74,7 +75,7 @@ def format_walk(quote: WalkQuote, spend: float) -> str:
     cost = pair_cost(yes, no)
     cheap = cost < 1.0
 
-    lines = []
+    lines = [BANNER, ""]
     if spend_note:
         lines.append(spend_note)
         lines.append("")
@@ -99,8 +100,10 @@ def format_walk(quote: WalkQuote, spend: float) -> str:
     )
 
     if quote.model_prob is None or quote.edge is None:
+        lines.append(f"Crowd YES price: {yes:.2f}.")
         lines.append(
-            "The bot needs a few more price ticks before it will guess. Wait."
+            "Guess: not ready — not enough price ticks yet. "
+            "The bot will not invent a number. Wait."
         )
     else:
         guess = quote.model_prob
@@ -125,11 +128,13 @@ def format_walk(quote: WalkQuote, spend: float) -> str:
         ]
     )
     if cheap:
+        lines.append("Hedge: CHEAP PAIR")
         lines.append(
             "Cheap pair (under $1): same dollars either way if you bought both. "
             "This is not edge."
         )
     else:
+        lines.append("Hedge: SKIP")
         lines.append(
             "Pair costs more than $1: skip it. That is overpaying for both sides, "
             "not a hedge."

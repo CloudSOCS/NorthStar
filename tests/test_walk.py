@@ -1,4 +1,5 @@
 from poly.practice.walk import (
+    BANNER,
     DEFAULT_SPEND,
     FOOTER,
     MAX_SPEND,
@@ -51,10 +52,12 @@ def test_format_walk_has_four_steps_and_practice_only_footer():
     assert "Step 2" in text
     assert "Step 3" in text
     assert "Step 4" in text
+    assert BANNER in text
     assert FOOTER in text
     assert "+$3.00" in text
     assert "too cheap" in text.lower()
     assert "cheap pair" in text.lower()
+    assert "Hedge: CHEAP PAIR" in text
 
 
 def test_format_walk_expensive_pair_and_negative_edge():
@@ -69,6 +72,7 @@ def test_format_walk_expensive_pair_and_negative_edge():
     text = format_walk(quote, spend=2.0)
     assert "too expensive" in text.lower()
     assert "skip" in text.lower()
+    assert "Hedge: SKIP" in text
 
 
 def test_format_walk_without_guess_does_not_invent_edge():
@@ -83,6 +87,8 @@ def test_format_walk_without_guess_does_not_invent_edge():
     text = format_walk(quote, spend=2.0)
     assert "wait" in text.lower()
     assert "too cheap" not in text.lower()
+    assert "Guess: not ready" in text
+    assert "will not invent a number" in text
 
 
 def test_walk_module_does_not_import_live():
