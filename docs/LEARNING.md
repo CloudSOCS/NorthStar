@@ -123,9 +123,65 @@ is Step 4.
 
 ---
 
-## Step 3 — Edge
+## Step 3 — Edge ✅
 
 Why the bot sometimes says "this ticket looks too cheap — buy it."
+
+**Edge** is the gap between what the crowd is charging and what the bot thinks the ticket is worth.
+
+### Two numbers, not one
+
+Step 1’s price is the **crowd’s** number. The bot also has **its own** guess of the chance YES (or NO) is right. Same $1 ticket. Two opinions.
+
+| Number | Who | Example |
+| ------ | --- | ------- |
+| Ticket price | the crowd | YES costs **40¢** |
+| Fair value | the bot’s guess | bot thinks YES is more like **50¢** |
+
+**Edge = bot’s guess − crowd’s price.**
+
+Here: 50¢ − 40¢ = **+10¢**. The bot is saying the ticket looks **10¢ too cheap**.
+
+A negative edge is the opposite: the crowd is already charging more than the bot thinks it’s worth. That ticket looks **too expensive**.
+
+This is not profit-and-loss from Step 2. Step 2 is what you make *if* you win or lose. Edge is only “is this a good *price*?”
+
+### A $2 example
+
+Crowd: YES at **40¢**. Bot’s guess: **50¢**. Edge: **+10¢**.
+
+You still use Step 2 for the dollars. $2 at 40¢ is 5 tickets:
+
+| If you… | You get back | Profit / loss |
+| ------- | ------------ | ------------- |
+| WIN     | $5           | **+$3**       |
+| LOSE    | $0           | **−$2**       |
+
+The +10¢ edge did **not** lock in +$3. It only means the bot prefers this 40¢ price to its 50¢ guess. If YES loses, you still lose the $2.
+
+If the crowd charged **80¢** and the bot guessed **70¢**, edge = 70¢ − 80¢ = **−10¢**. Same Step 2 math would still apply if you bought — but the bot would say the ticket looks too expensive, so the usual move is **don’t click**.
+
+### Before you click
+
+- **Positive edge** feels like: “I’d rather buy this than the price suggests.” The bot may say it looks too cheap. You still decide.
+- **Negative edge** feels like: “I’d be overpaying.” The bot stays quiet, or tells you to wait.
+- A tiny gap is not a green light. The bot waits unless the gap is large enough to care about.
+
+Most of the time the right move is still to wait.
+
+### It is only an opinion
+
+The bot’s guess can be wrong. The crowd can be right. Edge does not change Step 2: until the question is answered, you have not won or lost. A “cheap” ticket that loses still loses your dollars in.
+
+### Quick self-check
+
+YES costs **80¢**. The bot’s guess is **70¢**. Is the edge positive or negative? Does the ticket look too cheap, or too expensive? (Negative. Too expensive. Don’t buy just because the payout would still be $1.)
+
+### Not this step
+
+Buying **both** sides cheap (a hedge) is Step 4. This step is one ticket, one price, one guess.
+
+---
 
 ## Step 4 — Hedging (save for last, it's the hardest)
 
