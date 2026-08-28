@@ -82,6 +82,20 @@ northstar practice last --json
 Reprints the newest walk(s) in the same Step 1–4 voice. No market fetch. No order.
 `--json` dumps the saved snapshots instead of the teaching panels.
 
+## 9. Grok worker allowlist
+Charter: `docs/GROK_BOT.md`. First-run on the bot computer: `docs/GROK_BOT_SETUP.md`.
+Live orders stay unwired.
+```bash
+uv run northstar status
+uv run northstar status --json
+uv run northstar practice walk
+uv run northstar practice walk --save
+uv run northstar practice last
+uv run northstar practice last --json
+uv run northstar practice journal
+uv run northstar practice journal --json
+```
+
 ---
 Reminder: the bot only SUGGESTS. You click Yes/No and enter the amount yourself.
 When learning, it's fine to let it fire and NOT buy. Tiny size ($2-$5) when you do.
