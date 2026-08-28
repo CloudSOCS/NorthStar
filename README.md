@@ -157,7 +157,7 @@ agents/            Hypothesis Graph research memory (append-only)
 | `northstar dry` | Real prices, dry-run signals (no orders) |
 | `northstar practice run` | Live dashboard with virtual bankroll |
 | `northstar practice buy / close / status / reset` | Manage your practice account |
-| `northstar status` | Show current config and which phase is wired |
+| `northstar status` | Fences + last saved lesson (read-only; `--json` for agents) |
 
 ## Safety
 

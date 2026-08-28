@@ -4,6 +4,13 @@
 Log into https://kalshi.com in your browser, so the auto-opened page lets you trade.
 No VPN while on Kalshi.
 
+```bash
+northstar status
+northstar status --json
+```
+What this project is allowed to do right now, and the last saved lesson. Read-only.
+Live orders stay unwired. The generator stays stubbed. The graph command is stop.
+
 ## 1. Start the watcher (the main one)
 ```bash
 cd /Volumes/App/NorthStar

@@ -21,13 +21,18 @@ from poly.execution.paper import (
     run_hedged_paper_backtest,
     run_paper_backtest,
 )
-from poly.modes import describe_mode
 from poly.practice.account import (
     default_state_path,
     load_account,
     save_account,
 )
 from poly.practice.runner import run_practice_session
+from poly.practice.orientation import (
+    CONTINUE,
+    STATUS_FOOTER,
+    format_last_walk_line,
+    product_status_payload,
+)
 from poly.practice.walk import (
     SAVE_NOTE,
     append_journal_entry,
@@ -812,24 +817,30 @@ def practice_run(
 
 
 @app.command()
-def status() -> None:
-    """Show config and which build phase is active."""
-    settings = Settings()
-    mode = describe_mode(settings)
+def status(
+    as_json: bool = typer.Option(
+        False, "--json", help="Print the same facts as JSON (stdout only)"
+    ),
+) -> None:
+    """What this project is allowed to do, and the last saved lesson. Read-only."""
+    _path, blob = _read_practice_journal(as_json=as_json)
+    entries = blob.get("entries") or []
+    payload = product_status_payload(entries)
+    if as_json:
+        print(json.dumps(payload, indent=2))
+        return
 
     table = Table(title="NorthStar status")
     table.add_column("Setting")
     table.add_column("Value")
-    table.add_row("Mode", mode.mode.value)
-    table.add_row("Markov strategy", "on" if mode.markov_active else "off")
-    table.add_row("Cross-market arb", "on" if mode.cross_arb_active else "stub")
-    table.add_row("Places real orders", "yes" if mode.places_orders else "no")
-    table.add_row("Min edge", str(settings.min_edge))
-    table.add_row("Entry band", f"{settings.entry_min_price} – {settings.entry_max_price}")
-    table.add_row("Kelly fraction", str(settings.kelly_fraction))
-    table.add_row("Bankroll (paper)", f"${settings.starting_bankroll:,.0f}")
+    fences = payload["fences"]
+    table.add_row("Live orders", str(fences["live_orders"]))
+    table.add_row("Generator", str(fences["generator"]))
+    table.add_row("Graph command", str(fences["graph_command"]))
+    table.add_row("Last saved lesson", format_last_walk_line(payload["last_walk"]))
+    table.add_row("Continue", "\n".join(CONTINUE))
     console.print(table)
-    console.print(f"\n[dim]{mode.notes}[/dim]")
+    console.print(f"[dim]{STATUS_FOOTER}[/dim]")
 
 
 if __name__ == "__main__":
