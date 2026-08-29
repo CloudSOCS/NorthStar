@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import httpx
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -466,6 +467,13 @@ practice_app = typer.Typer(help="Virtual trading and teaching walk (no live orde
 app.add_typer(practice_app, name="practice")
 
 
+def _is_kalshi_rate_limit(exc: httpx.HTTPStatusError) -> bool:
+    response = exc.response
+    if response is not None and response.status_code == 429:
+        return True
+    return response is None and "rate-limited" in str(exc).lower()
+
+
 @practice_app.command("walk")
 def practice_walk(
     asset: str = typer.Option("BTC", help="Kalshi 15m asset, e.g. BTC, ETH, SOL"),
@@ -479,7 +487,16 @@ def practice_walk(
     ),
 ) -> None:
     """Walk a live Kalshi 15m market through learning Steps 1–4. No order is placed."""
-    quote = load_walk_quote(asset)
+    try:
+        quote = load_walk_quote(asset)
+    except httpx.HTTPStatusError as exc:
+        if not _is_kalshi_rate_limit(exc):
+            raise
+        typer.echo(
+            "Kalshi rate-limited. Wait and retry once. "
+            "No lesson was saved. No order was placed."
+        )
+        raise typer.Exit(1)
     if quote is None:
         console.print(
             f"[yellow]No active Kalshi 15m market for {asset.upper()}.[/yellow]"

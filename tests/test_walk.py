@@ -366,3 +366,39 @@ def test_practice_json_corrupt_journal_exits_nonzero(monkeypatch, tmp_path):
     assert result.exit_code == 1
     assert result.stdout.strip() == ""
     assert "Could not read journal" in (result.stderr or "")
+
+
+def test_practice_walk_rate_limit_is_quiet_and_does_not_save(monkeypatch, tmp_path):
+    import httpx
+
+    path = tmp_path / "walk_journal.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "entries": [{"saved_at": "a", "asset": "BTC"}],
+            }
+        )
+    )
+    before = path.read_text()
+
+    def boom(_asset, settings=None):
+        raise httpx.HTTPStatusError(
+            "Kalshi rate-limited after fetching 0/1 assets (missing: BTC). "
+            "Wait ~10s and retry once.",
+            request=None,
+            response=None,
+        )
+
+    monkeypatch.setattr("poly.cli.load_walk_quote", boom)
+    result = _invoke_practice(["walk", "--save"], monkeypatch, path)
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert result.exit_code == 1
+    assert (
+        "Kalshi rate-limited. Wait and retry once. "
+        "No lesson was saved. No order was placed."
+    ) in combined
+    assert "Traceback" not in combined
+    assert "Step 1" not in combined
+    assert "too cheap" not in combined.lower()
+    assert path.read_text() == before
