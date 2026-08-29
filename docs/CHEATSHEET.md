@@ -59,8 +59,11 @@ northstar practice pnl
 northstar practice walk
 northstar practice walk --asset ETH --spend 2
 northstar practice walk --save
+northstar practice walk --demo
+northstar practice walk --demo --save
 ```
 Prints ticket price, tiny-size P&L, edge, and a YES+NO hedge check.
+`--demo` uses the LEARNING.md snapshot and does not call Kalshi.
 `--save` appends that snapshot to `~/.poly/walk_journal.json` (a notebook, not a trade).
 Always ends with: this is practice only — no live order was placed.
 
@@ -90,6 +93,8 @@ uv run northstar status
 uv run northstar status --json
 uv run northstar practice walk
 uv run northstar practice walk --save
+uv run northstar practice walk --demo
+uv run northstar practice walk --demo --save
 uv run northstar practice last
 uv run northstar practice last --json
 uv run northstar practice journal

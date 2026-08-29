@@ -19,6 +19,9 @@ MAX_SPEND = 5.0
 MIN_EDGE_TO_CARE = 0.03
 FOOTER = "This is practice only — no live order was placed."
 BANNER = "This is a teaching walk of a real market — no order will be placed"
+DEMO_BANNER = (
+    "This is a demo snapshot, not a live Kalshi market — no order will be placed"
+)
 REPLAY_BANNER = "This is a notebook replay of a saved lesson — no order will be placed"
 REPLAY_FOOTER = "This is a notebook replay — no live order was placed"
 JOURNAL_SCHEMA = 1
@@ -33,6 +36,26 @@ class WalkQuote:
     no_price: float
     model_prob: Optional[float]
     edge: Optional[float]
+
+
+# LEARNING.md Steps 2–4: $2 on YES at 40¢, guess 50¢, NO 40¢ cheap pair.
+DEMO_YES = 0.40
+DEMO_NO = 0.40
+DEMO_GUESS = 0.50
+DEMO_EDGE = 0.10
+DEMO_QUESTION = "Teaching snapshot — not a live market"
+
+
+def demo_quote() -> WalkQuote:
+    """Fixed teaching snapshot. Does not fetch a market."""
+    return WalkQuote(
+        asset="DEMO",
+        question=DEMO_QUESTION,
+        yes_price=DEMO_YES,
+        no_price=DEMO_NO,
+        model_prob=DEMO_GUESS,
+        edge=DEMO_EDGE,
+    )
 
 
 def clamp_spend(usd: float) -> Tuple[float, Optional[str]]:
@@ -79,6 +102,7 @@ def format_walk(
     *,
     replay: bool = False,
     saved_at: Optional[str] = None,
+    demo: bool = False,
 ) -> str:
     spend, spend_note = clamp_spend(spend)
     yes = quote.yes_price
@@ -89,7 +113,12 @@ def format_walk(
     cost = pair_cost(yes, no)
     cheap = cost < 1.0
 
-    banner = REPLAY_BANNER if replay else BANNER
+    if replay:
+        banner = REPLAY_BANNER
+    elif demo:
+        banner = DEMO_BANNER
+    else:
+        banner = BANNER
     footer = REPLAY_FOOTER if replay else FOOTER
     lines = [banner, ""]
     if replay and saved_at:
@@ -183,6 +212,7 @@ def journal_entry(
     quote: WalkQuote,
     spend: float,
     saved_at: Optional[str] = None,
+    source: Optional[str] = None,
 ) -> Dict[str, Any]:
     spend, _ = clamp_spend(spend)
     cost = round(pair_cost(quote.yes_price, quote.no_price), 4)
@@ -190,7 +220,7 @@ def journal_entry(
         edge: Union[str, float] = "not ready"
     else:
         edge = round(quote.edge, 4)
-    return {
+    entry: Dict[str, Any] = {
         "saved_at": saved_at or datetime.now().astimezone().isoformat(timespec="seconds"),
         "asset": quote.asset,
         "question": quote.question,
@@ -204,6 +234,9 @@ def journal_entry(
         "hedge": hedge_verdict(quote.yes_price, quote.no_price),
         "pair_cost": cost,
     }
+    if source:
+        entry["source"] = source
+    return entry
 
 
 def quote_from_journal_entry(entry: Dict[str, Any]) -> Tuple[WalkQuote, float]:

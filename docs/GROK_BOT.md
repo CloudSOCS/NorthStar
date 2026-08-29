@@ -27,13 +27,15 @@ uv run northstar status
 uv run northstar status --json
 uv run northstar practice walk
 uv run northstar practice walk --save
+uv run northstar practice walk --demo
+uv run northstar practice walk --demo --save
 uv run northstar practice last
 uv run northstar practice last --json
 uv run northstar practice journal
 uv run northstar practice journal --json
 ```
 
-Existing flags on those same commands are fine (`--asset`, `--spend`, `--n`, `--last`). Nothing else.
+Existing flags on those same commands are fine (`--asset`, `--spend`, `--n`, `--last`, `--demo`). Nothing else.
 
 ## 5. Forbidden
 

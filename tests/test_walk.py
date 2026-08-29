@@ -5,6 +5,7 @@ import pytest
 from poly.practice.walk import (
     BANNER,
     DEFAULT_SPEND,
+    DEMO_BANNER,
     FOOTER,
     MAX_SPEND,
     REPLAY_BANNER,
@@ -13,6 +14,7 @@ from poly.practice.walk import (
     append_journal_entry,
     clamp_spend,
     default_journal_path,
+    demo_quote,
     format_journal_edge,
     format_journal_time,
     format_walk,
@@ -73,6 +75,38 @@ def test_format_walk_has_four_steps_and_practice_only_footer():
     assert "too cheap" in text.lower()
     assert "cheap pair" in text.lower()
     assert "Hedge: CHEAP PAIR" in text
+
+
+def test_demo_quote_uses_learning_md_numbers():
+    quote = demo_quote()
+    assert quote.asset == "DEMO"
+    assert quote.yes_price == 0.40
+    assert quote.no_price == 0.40
+    assert quote.model_prob == 0.50
+    assert quote.edge == 0.10
+    text = format_walk(quote, spend=2.0, demo=True)
+    assert DEMO_BANNER in text
+    assert BANNER not in text
+    assert FOOTER in text
+    assert "+$3.00" in text
+    assert "Hedge: CHEAP PAIR" in text
+    assert "too cheap" in text.lower()
+
+
+def test_demo_journal_entry_marks_source():
+    entry = journal_entry(demo_quote(), spend=2.0, source="demo")
+    assert entry["asset"] == "DEMO"
+    assert entry["source"] == "demo"
+    assert entry["yes_price"] == 0.40
+    assert entry["tickets"] == 5.0
+    assert entry["win_pnl"] == 3.0
+    assert entry["edge"] == 0.10
+    assert entry["hedge"] == "CHEAP PAIR"
+    live = journal_entry(
+        WalkQuote("ETH", "ETH", 0.40, 0.40, None, None),
+        spend=2.0,
+    )
+    assert "source" not in live
 
 
 def test_format_walk_expensive_pair_and_negative_edge():
@@ -402,3 +436,36 @@ def test_practice_walk_rate_limit_is_quiet_and_does_not_save(monkeypatch, tmp_pa
     assert "Step 1" not in combined
     assert "too cheap" not in combined.lower()
     assert path.read_text() == before
+
+
+def test_practice_walk_demo_does_not_call_kalshi(monkeypatch, tmp_path):
+    def boom(_asset, settings=None):
+        raise AssertionError("load_walk_quote must not run on --demo")
+
+    monkeypatch.setattr("poly.cli.load_walk_quote", boom)
+    path = tmp_path / "walk_journal.json"
+    result = _invoke_practice(["walk", "--demo"], monkeypatch, path)
+    assert result.exit_code == 0
+    assert DEMO_BANNER in result.stdout
+    assert BANNER not in result.stdout
+    assert "Step 1" in result.stdout
+    assert "+$3.00" in result.stdout
+    assert not path.exists()
+
+
+def test_practice_walk_demo_save_writes_demo_source(monkeypatch, tmp_path):
+    def boom(_asset, settings=None):
+        raise AssertionError("load_walk_quote must not run on --demo")
+
+    monkeypatch.setattr("poly.cli.load_walk_quote", boom)
+    path = tmp_path / "walk_journal.json"
+    result = _invoke_practice(["walk", "--demo", "--save"], monkeypatch, path)
+    assert result.exit_code == 0
+    blob = json.loads(path.read_text())
+    assert len(blob["entries"]) == 1
+    entry = blob["entries"][0]
+    assert entry["asset"] == "DEMO"
+    assert entry["source"] == "demo"
+    assert entry["yes_price"] == 0.40
+    assert entry["edge"] == 0.10
+    assert entry["hedge"] == "CHEAP PAIR"

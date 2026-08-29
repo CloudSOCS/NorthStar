@@ -43,6 +43,7 @@ from poly.practice.walk import (
     format_walk,
     journal_entry,
     dump_journal_json,
+    demo_quote,
     load_journal,
     load_walk_quote,
     quote_from_journal_entry,
@@ -485,32 +486,42 @@ def practice_walk(
         "--save",
         help="Append this lesson snapshot to the local walk journal (not a trade)",
     ),
+    demo: bool = typer.Option(
+        False,
+        "--demo",
+        help="Use the fixed LEARNING.md snapshot. Does not call Kalshi",
+    ),
 ) -> None:
     """Walk a live Kalshi 15m market through learning Steps 1–4. No order is placed."""
-    try:
-        quote = load_walk_quote(asset)
-    except httpx.HTTPStatusError as exc:
-        if not _is_kalshi_rate_limit(exc):
-            raise
-        typer.echo(
-            "Kalshi rate-limited. Wait and retry once. "
-            "No lesson was saved. No order was placed."
-        )
-        raise typer.Exit(1)
-    if quote is None:
-        console.print(
-            f"[yellow]No active Kalshi 15m market for {asset.upper()}.[/yellow]"
-        )
-        raise typer.Exit(1)
+    if demo:
+        quote = demo_quote()
+    else:
+        try:
+            quote = load_walk_quote(asset)
+        except httpx.HTTPStatusError as exc:
+            if not _is_kalshi_rate_limit(exc):
+                raise
+            typer.echo(
+                "Kalshi rate-limited. Wait and retry once. "
+                "No lesson was saved. No order was placed."
+            )
+            raise typer.Exit(1)
+        if quote is None:
+            console.print(
+                f"[yellow]No active Kalshi 15m market for {asset.upper()}.[/yellow]"
+            )
+            raise typer.Exit(1)
     console.print(
         Panel(
-            format_walk(quote, spend),
+            format_walk(quote, spend, demo=demo),
             title="NorthStar practice walk",
             border_style="blue",
         )
     )
     if save:
-        path = append_journal_entry(journal_entry(quote, spend))
+        path = append_journal_entry(
+            journal_entry(quote, spend, source="demo" if demo else None)
+        )
         console.print(f"[dim]{SAVE_NOTE}[/dim]")
         console.print(f"[dim]{path}[/dim]")
 

@@ -33,7 +33,13 @@ Stay at the machine. Watch this print Steps 1–4. No order is placed.
 uv run northstar practice walk --save
 ```
 
-`--save` writes a local lesson notebook. That is not a trade. If it says **Guess: not ready**, that is the real answer — do not invent an edge.
+If Kalshi rate-limits, use the teaching snapshot instead (no live market):
+
+```bash
+uv run northstar practice walk --demo --save
+```
+
+`--save` writes a local lesson notebook. That is not a trade. If it says **Guess: not ready**, that is the real answer — do not invent an edge. `--demo` is not a live Kalshi market.
 
 ## 5. Proof the notebook wrote
 
