@@ -27,19 +27,19 @@ You should see `live_orders` = `unwired`, `generator` = `stubbed`, `graph_comman
 
 ## 4. Watched demo (human on the keyboard)
 
-Stay at the machine. Watch this print Steps 1–4. No order is placed.
-
-```bash
-uv run northstar practice walk --save
-```
-
-If Kalshi rate-limits, use the teaching snapshot instead (no live market):
+Stay at the machine. Watch this print Steps 1–4. No order is placed. `--demo` is a teaching snapshot, not a live Kalshi market.
 
 ```bash
 uv run northstar practice walk --demo --save
 ```
 
-`--save` writes a local lesson notebook. That is not a trade. If it says **Guess: not ready**, that is the real answer — do not invent an edge. `--demo` is not a live Kalshi market.
+`--save` writes a local lesson notebook. That is not a trade.
+
+Optional later (live Kalshi prices; may rate-limit):
+
+```bash
+uv run northstar practice walk --save
+```
 
 ## 5. Proof the notebook wrote
 

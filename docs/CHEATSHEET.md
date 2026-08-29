@@ -88,6 +88,7 @@ Reprints the newest walk(s) in the same Step 1–4 voice. No market fetch. No or
 ## 9. Grok worker allowlist
 Charter: `docs/GROK_BOT.md`. First-run on the bot computer: `docs/GROK_BOT_SETUP.md`.
 Live orders stay unwired.
+`--demo` is a teaching snapshot, not a live Kalshi market.
 ```bash
 uv run northstar status
 uv run northstar status --json

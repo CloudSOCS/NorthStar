@@ -36,6 +36,7 @@ uv run northstar practice journal --json
 ```
 
 Existing flags on those same commands are fine (`--asset`, `--spend`, `--n`, `--last`, `--demo`). Nothing else.
+`--demo` is a teaching snapshot, not a live Kalshi market.
 
 ## 5. Forbidden
 
