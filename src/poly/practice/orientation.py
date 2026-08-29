@@ -23,6 +23,24 @@ CONTINUE = [
 STATUS_FOOTER = "This is a status check, not a trade."
 
 
+def last_walk_kind(entry: Optional[Dict[str, Any]]) -> Optional[str]:
+    """demo vs live. Does not invent prices."""
+    if not entry:
+        return None
+    if entry.get("source") == "demo" or str(entry.get("asset") or "") == "DEMO":
+        return "demo"
+    return "live"
+
+
+def format_last_walk_kind(entry: Optional[Dict[str, Any]]) -> str:
+    kind = last_walk_kind(entry)
+    if kind is None:
+        return "no saved walks yet"
+    if kind == "demo":
+        return "demo snapshot — not a live Kalshi market"
+    return "live Kalshi"
+
+
 def product_status_payload(entries: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Newest saved lesson plus static fences. Does not write or fetch a market."""
     dumped = dump_journal_json(entries or [], last=1)
@@ -31,6 +49,7 @@ def product_status_payload(entries: Optional[List[Dict[str, Any]]] = None) -> Di
         "schema_version": STATUS_SCHEMA,
         "fences": dict(FENCES),
         "last_walk": last,
+        "last_walk_kind": last_walk_kind(last),
         "continue": list(CONTINUE),
     }
 

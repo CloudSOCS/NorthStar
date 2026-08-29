@@ -31,6 +31,7 @@ from poly.practice.runner import run_practice_session
 from poly.practice.orientation import (
     CONTINUE,
     STATUS_FOOTER,
+    format_last_walk_kind,
     format_last_walk_line,
     product_status_payload,
 )
@@ -865,6 +866,7 @@ def status(
     table.add_row("Live orders", str(fences["live_orders"]))
     table.add_row("Generator", str(fences["generator"]))
     table.add_row("Graph command", str(fences["graph_command"]))
+    table.add_row("Last lesson", format_last_walk_kind(payload["last_walk"]))
     table.add_row("Last saved lesson", format_last_walk_line(payload["last_walk"]))
     table.add_row("Continue", "\n".join(CONTINUE))
     console.print(table)

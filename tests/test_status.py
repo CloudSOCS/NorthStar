@@ -2,7 +2,9 @@ import json
 
 from poly.practice.orientation import (
     CONTINUE,
+    format_last_walk_kind,
     format_last_walk_line,
+    last_walk_kind,
     product_status_payload,
 )
 
@@ -17,6 +19,7 @@ def test_product_status_empty_last_walk():
         "source": "static",
     }
     assert blob["last_walk"] is None
+    assert blob["last_walk_kind"] is None
     assert blob["continue"] == CONTINUE
     assert "northstar practice walk" in blob["continue"]
     assert "northstar practice walk --save" in blob["continue"]
@@ -59,8 +62,23 @@ def test_product_status_uses_newest_stored_entry():
     blob = product_status_payload(entries)
     assert blob["last_walk"] == entries[1]
     assert blob["last_walk"] is entries[1]
+    assert blob["last_walk_kind"] == "live"
     line = format_last_walk_line(blob["last_walk"])
     assert line == "ETH  2026-08-26 15:14  edge +0.10  hedge CHEAP PAIR"
+    assert format_last_walk_kind(blob["last_walk"]) == "live Kalshi"
+
+
+def test_last_walk_kind_demo_vs_live():
+    demo = {"asset": "DEMO", "source": "demo", "edge": 0.1}
+    live = {"asset": "BTC", "edge": -0.07}
+    demo_asset_only = {"asset": "DEMO", "edge": 0.1}
+    assert last_walk_kind(None) is None
+    assert last_walk_kind(demo) == "demo"
+    assert last_walk_kind(demo_asset_only) == "demo"
+    assert last_walk_kind(live) == "live"
+    assert format_last_walk_kind(None) == "no saved walks yet"
+    assert format_last_walk_kind(demo) == "demo snapshot — not a live Kalshi market"
+    assert format_last_walk_kind(live) == "live Kalshi"
 
 
 def test_orientation_does_not_import_live_or_graph():
@@ -97,6 +115,7 @@ def test_status_json_empty_missing_file(monkeypatch, tmp_path):
     assert result.exit_code == 0
     blob = json.loads(result.stdout)
     assert blob["last_walk"] is None
+    assert blob["last_walk_kind"] is None
     assert blob["fences"]["live_orders"] == "unwired"
     assert blob["fences"]["source"] == "static"
     assert "Places real orders" not in result.stdout
@@ -127,6 +146,7 @@ def test_status_json_newest_walk_no_chrome(monkeypatch, tmp_path):
     blob = json.loads(result.stdout)
     assert blob["last_walk"]["asset"] == "ETH"
     assert blob["last_walk"]["hedge"] == "CHEAP PAIR"
+    assert blob["last_walk_kind"] == "live"
     assert "NorthStar status" not in result.stdout
     assert "no saved walks yet" not in result.stdout
 
@@ -169,6 +189,35 @@ def test_status_human_shows_last_lesson(monkeypatch, tmp_path):
     assert "2026-08-26 15:14" in result.stdout
     assert "+0.10" in result.stdout
     assert "CHEAP PAIR" in result.stdout
+    assert "live Kalshi" in result.stdout
+
+
+def test_status_human_and_json_label_demo(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "entries": [
+                    {
+                        "saved_at": "2026-08-29T18:44:15+00:00",
+                        "asset": "DEMO",
+                        "source": "demo",
+                        "edge": 0.1,
+                        "hedge": "CHEAP PAIR",
+                    }
+                ],
+            }
+        )
+    )
+    human = _invoke_status([], monkeypatch, path)
+    assert human.exit_code == 0
+    assert "demo snapshot — not a live Kalshi market" in human.stdout
+    assert "DEMO" in human.stdout
+    dumped = _invoke_status(["--json"], monkeypatch, path)
+    blob = json.loads(dumped.stdout)
+    assert blob["last_walk_kind"] == "demo"
+    assert blob["last_walk"]["source"] == "demo"
 
 
 def test_status_json_corrupt_journal_exits_nonzero(monkeypatch, tmp_path):
