@@ -45,6 +45,7 @@ from poly.practice.walk import (
     journal_entry,
     dump_journal_json,
     demo_quote,
+    is_kalshi_rate_limit,
     load_journal,
     load_walk_quote,
     quote_from_journal_entry,
@@ -469,13 +470,6 @@ practice_app = typer.Typer(help="Virtual trading and teaching walk (no live orde
 app.add_typer(practice_app, name="practice")
 
 
-def _is_kalshi_rate_limit(exc: httpx.HTTPStatusError) -> bool:
-    response = exc.response
-    if response is not None and response.status_code == 429:
-        return True
-    return response is None and "rate-limited" in str(exc).lower()
-
-
 @practice_app.command("walk")
 def practice_walk(
     asset: str = typer.Option("BTC", help="Kalshi 15m asset, e.g. BTC, ETH, SOL"),
@@ -500,7 +494,7 @@ def practice_walk(
         try:
             quote = load_walk_quote(asset)
         except httpx.HTTPStatusError as exc:
-            if not _is_kalshi_rate_limit(exc):
+            if not is_kalshi_rate_limit(exc):
                 raise
             typer.echo(
                 "Kalshi rate-limited. Wait and retry once. "

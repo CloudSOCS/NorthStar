@@ -469,3 +469,118 @@ def test_practice_walk_demo_save_writes_demo_source(monkeypatch, tmp_path):
     assert entry["yes_price"] == 0.40
     assert entry["edge"] == 0.10
     assert entry["hedge"] == "CHEAP PAIR"
+
+
+def _rate_err():
+    import httpx
+
+    return httpx.HTTPStatusError(
+        "Kalshi rate-limited after fetching 0/1 assets (missing: BTC). "
+        "Wait ~10s and retry once.",
+        request=None,
+        response=None,
+    )
+
+
+def _btc_market():
+    from poly.clients.kalshi import KalshiMarket
+
+    return KalshiMarket(
+        asset="BTC",
+        ticker="KXBTC15M-TEST",
+        event_ticker="e",
+        title="BTC price up in next 15 mins?",
+        yes_sub_title="",
+        yes_bid=0.39,
+        yes_ask=0.40,
+        no_bid=0.39,
+        no_ask=0.40,
+        last_price=0.40,
+        close_time="",
+    )
+
+
+class _ScriptedFeed:
+    def __init__(self, steps):
+        self.steps = list(steps)
+        self.calls = 0
+
+    def refresh_and_poll(self, assets):
+        i = self.calls
+        self.calls += 1
+        if i < len(self.steps):
+            step = self.steps[i]
+        else:
+            lists = [s for s in self.steps if not isinstance(s, BaseException)]
+            if not lists:
+                raise self.steps[-1]
+            step = lists[-1]
+        if isinstance(step, BaseException):
+            raise step
+        return step
+
+    def trackers_for_assets(self, assets):
+        return []
+
+
+def test_load_walk_quote_success(monkeypatch):
+    from poly.practice.walk import load_walk_quote
+
+    monkeypatch.setattr("poly.practice.walk.time.sleep", lambda _s: None)
+    quote = load_walk_quote("BTC", feed=_ScriptedFeed([[_btc_market()]]))
+    assert quote is not None
+    assert quote.asset == "BTC"
+    assert quote.yes_price == 0.40
+    assert quote.no_price == 0.40
+    assert quote.edge is None
+
+
+def test_load_walk_quote_retries_once_then_succeeds(monkeypatch):
+    from poly.practice.walk import WALK_RATE_LIMIT_WAIT, load_walk_quote
+
+    sleeps = []
+    monkeypatch.setattr("poly.practice.walk.time.sleep", lambda s: sleeps.append(s))
+    feed = _ScriptedFeed([_rate_err(), [_btc_market()]])
+    quote = load_walk_quote("BTC", feed=feed)
+    assert quote is not None
+    assert quote.yes_price == 0.40
+    assert WALK_RATE_LIMIT_WAIT in sleeps
+    assert feed.calls >= 2
+
+
+def test_load_walk_quote_keeps_snapshot_if_later_poll_429s(monkeypatch):
+    from poly.practice.walk import load_walk_quote
+
+    monkeypatch.setattr("poly.practice.walk.time.sleep", lambda _s: None)
+    quote = load_walk_quote(
+        "BTC",
+        feed=_ScriptedFeed([[_btc_market()], _rate_err()]),
+    )
+    assert quote is not None
+    assert quote.yes_price == 0.40
+    assert quote.edge is None
+
+
+def test_practice_walk_two_429s_teaching_line_journal_untouched(monkeypatch, tmp_path):
+    from poly.practice.walk import load_walk_quote
+
+    monkeypatch.setattr("poly.practice.walk.time.sleep", lambda _s: None)
+    feed = _ScriptedFeed([_rate_err(), _rate_err()])
+    monkeypatch.setattr(
+        "poly.cli.load_walk_quote",
+        lambda asset, settings=None: load_walk_quote(asset, feed=feed),
+    )
+    path = tmp_path / "walk_journal.json"
+    path.write_text(
+        json.dumps({"schema_version": 1, "entries": [{"saved_at": "a", "asset": "BTC"}]})
+    )
+    before = path.read_text()
+    result = _invoke_practice(["walk", "--save"], monkeypatch, path)
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert result.exit_code == 1
+    assert (
+        "Kalshi rate-limited. Wait and retry once. "
+        "No lesson was saved. No order was placed."
+    ) in combined
+    assert "Traceback" not in combined
+    assert path.read_text() == before

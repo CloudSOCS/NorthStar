@@ -10,6 +10,8 @@ import json
 import os
 import time
 
+import httpx
+
 from poly.config import Settings
 from poly.data.kalshi_live import KalshiLiveFeed
 from poly.strategies.markov_crypto import MarkovCryptoStrategy
@@ -26,6 +28,7 @@ REPLAY_BANNER = "This is a notebook replay of a saved lesson — no order will b
 REPLAY_FOOTER = "This is a notebook replay — no live order was placed"
 JOURNAL_SCHEMA = 1
 SAVE_NOTE = "Saved this lesson snapshot — a notebook, not a trade."
+WALK_RATE_LIMIT_WAIT = 10.0
 
 
 @dataclass(frozen=True)
@@ -326,42 +329,71 @@ def append_journal_entry(
     return path
 
 
+def is_kalshi_rate_limit(exc: httpx.HTTPStatusError) -> bool:
+    response = exc.response
+    if response is not None and response.status_code == 429:
+        return True
+    return response is None and "rate-limited" in str(exc).lower()
+
+
+def _quote_from_feed(feed: Any, asset_u: str, settings: Settings) -> Optional[WalkQuote]:
+    markets = _first_markets_with_one_retry(feed, asset_u)
+    if not markets:
+        return None
+    for _ in range(3):
+        time.sleep(min(1.0, settings.dry_poll_seconds))
+        try:
+            nxt = feed.refresh_and_poll([asset_u])
+        except httpx.HTTPStatusError as exc:
+            if is_kalshi_rate_limit(exc):
+                break
+            raise
+        if nxt:
+            markets = nxt
+    market = markets[0]
+    yes_price = paid_price(market.yes_ask, market.yes_mid)
+    no_price = paid_price(market.no_ask, market.no_mid)
+    model_prob: Optional[float] = None
+    edge: Optional[float] = None
+    trackers = feed.trackers_for_assets([asset_u])
+    if trackers and len(trackers[0].up_prices) >= 4:
+        signal = MarkovCryptoStrategy(settings).evaluate_window(
+            trackers[0].to_window_series(),
+            bankroll=settings.starting_bankroll,
+            scan_all_ticks=True,
+            monte_carlo_paths=80,
+        )
+        model_prob = signal.model_prob
+        edge = model_prob - yes_price
+    return WalkQuote(
+        asset=market.asset,
+        question=market.question,
+        yes_price=yes_price,
+        no_price=no_price,
+        model_prob=model_prob,
+        edge=edge,
+    )
+
+
+def _first_markets_with_one_retry(feed: Any, asset_u: str) -> Any:
+    try:
+        return feed.refresh_and_poll([asset_u])
+    except httpx.HTTPStatusError as exc:
+        if not is_kalshi_rate_limit(exc):
+            raise
+        time.sleep(WALK_RATE_LIMIT_WAIT)
+        return feed.refresh_and_poll([asset_u])
+
+
 def load_walk_quote(
     asset: str,
     settings: Optional[Settings] = None,
+    feed: Any = None,
 ) -> Optional[WalkQuote]:
     """Read-only Kalshi snapshot. Never submits an order."""
     settings = settings or Settings()
     asset_u = asset.strip().upper()
-    with KalshiLiveFeed() as feed:
-        markets = feed.refresh_and_poll([asset_u])
-        if not markets:
-            return None
-        for _ in range(3):
-            time.sleep(min(1.0, settings.dry_poll_seconds))
-            markets = feed.refresh_and_poll([asset_u])
-        if not markets:
-            return None
-        market = markets[0]
-        yes_price = paid_price(market.yes_ask, market.yes_mid)
-        no_price = paid_price(market.no_ask, market.no_mid)
-        model_prob: Optional[float] = None
-        edge: Optional[float] = None
-        trackers = feed.trackers_for_assets([asset_u])
-        if trackers and len(trackers[0].up_prices) >= 4:
-            signal = MarkovCryptoStrategy(settings).evaluate_window(
-                trackers[0].to_window_series(),
-                bankroll=settings.starting_bankroll,
-                scan_all_ticks=True,
-                monte_carlo_paths=80,
-            )
-            model_prob = signal.model_prob
-            edge = model_prob - yes_price
-        return WalkQuote(
-            asset=market.asset,
-            question=market.question,
-            yes_price=yes_price,
-            no_price=no_price,
-            model_prob=model_prob,
-            edge=edge,
-        )
+    if feed is not None:
+        return _quote_from_feed(feed, asset_u, settings)
+    with KalshiLiveFeed() as live:
+        return _quote_from_feed(live, asset_u, settings)
