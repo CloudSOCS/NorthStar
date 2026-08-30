@@ -20,10 +20,11 @@ FENCES = {
     "source": "static",
 }
 CONTINUE = [
-    "northstar practice walk",
-    "northstar practice walk --save",
-    "northstar practice last",
-    "northstar practice journal",
+    "uv run northstar status --json",
+    "uv run northstar practice walk --demo --save",
+    "uv run northstar practice walk --save",
+    "uv run northstar practice last --json",
+    "uv run northstar practice journal --json",
 ]
 STATUS_FOOTER = "This is a status check, not a trade."
 

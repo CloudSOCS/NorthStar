@@ -21,10 +21,14 @@ def test_product_status_empty_last_walk():
     assert blob["last_walk"] is None
     assert blob["last_walk_kind"] is None
     assert blob["continue"] == CONTINUE
-    assert "northstar practice walk" in blob["continue"]
-    assert "northstar practice walk --save" in blob["continue"]
-    assert "northstar practice last" in blob["continue"]
-    assert "northstar practice journal" in blob["continue"]
+    assert blob["continue"] == [
+        "uv run northstar status --json",
+        "uv run northstar practice walk --demo --save",
+        "uv run northstar practice walk --save",
+        "uv run northstar practice last --json",
+        "uv run northstar practice journal --json",
+    ]
+    assert not any("buy" in cmd or "close" in cmd or "--live" in cmd for cmd in blob["continue"])
     assert format_last_walk_line(None) == "no saved walks yet"
 
 
@@ -162,8 +166,11 @@ def test_status_human_empty_and_continue(monkeypatch, tmp_path):
     assert "stubbed" in text
     assert "stop" in text.lower()
     assert "no saved walks yet" in text
-    assert "northstar practice walk" in text
-    assert "northstar practice last" in text
+    assert "uv run northstar status --json" in text
+    assert "uv run northstar practice walk --demo --save" in text
+    assert "uv run northstar practice walk --save" in text
+    assert "uv run northstar practice last --json" in text
+    assert "uv run northstar practice journal --json" in text
     assert "This is a status check, not a trade." in text
     assert "Places real orders" not in text
 
