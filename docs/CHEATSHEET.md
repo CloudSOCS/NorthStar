@@ -9,7 +9,7 @@ northstar status
 northstar status --json
 ```
 What this project is allowed to do right now, and the last saved lesson. Read-only.
-Live orders stay unwired. The generator stays stubbed. The graph command is stop.
+Live orders are approve-per-order on the Mac Mini (`kalshi-live`, human `--i-approve-live`). The helper must not run `kalshi-live`. The generator stays stubbed. The graph command is stop.
 
 ## 1. Start the watcher (the main one)
 ```bash
@@ -88,7 +88,7 @@ Reprints the newest walk(s) in the same Step 1–4 voice. No market fetch. No or
 
 ## 9. Grok worker allowlist
 Charter: `docs/GROK_BOT.md`. First-run on the bot computer: `docs/GROK_BOT_SETUP.md`.
-Live orders stay unwired.
+`kalshi-live` is Mac Mini only: human APPROVE per order. Not on the helper allowlist.
 `--demo` is a teaching snapshot, not a live Kalshi market.
 ```bash
 uv run northstar status

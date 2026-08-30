@@ -2,6 +2,7 @@ import json
 
 from poly.practice.orientation import (
     CONTINUE,
+    HELPER,
     format_last_walk_kind,
     format_last_walk_line,
     last_walk_kind,
@@ -13,11 +14,13 @@ def test_product_status_empty_last_walk():
     blob = product_status_payload([])
     assert blob["schema_version"] == 1
     assert blob["fences"] == {
-        "live_orders": "unwired",
+        "live_orders": "approve-per-order",
         "generator": "stubbed",
         "graph_command": "stop",
         "source": "static",
     }
+    assert blob["helper"] == HELPER
+    assert blob["helper"] == "must not run kalshi-live"
     assert blob["last_walk"] is None
     assert blob["last_walk_kind"] is None
     assert blob["continue"] == CONTINUE
@@ -29,6 +32,7 @@ def test_product_status_empty_last_walk():
         "uv run northstar practice journal --json",
     ]
     assert not any("buy" in cmd or "close" in cmd or "--live" in cmd for cmd in blob["continue"])
+    assert not any("kalshi-live" in cmd for cmd in blob["continue"])
     assert format_last_walk_line(None) == "no saved walks yet"
 
 
@@ -122,7 +126,8 @@ def test_status_json_empty_missing_file(monkeypatch, tmp_path):
     blob = json.loads(result.stdout)
     assert blob["last_walk"] is None
     assert blob["last_walk_kind"] is None
-    assert blob["fences"]["live_orders"] == "unwired"
+    assert blob["fences"]["live_orders"] == "approve-per-order"
+    assert blob["helper"] == "must not run kalshi-live"
     assert blob["fences"]["source"] == "static"
     assert "Places real orders" not in result.stdout
     assert not path.exists()
@@ -162,7 +167,9 @@ def test_status_human_empty_and_continue(monkeypatch, tmp_path):
     result = _invoke_status([], monkeypatch, path)
     assert result.exit_code == 0
     text = result.stdout
-    assert "unwired" in text
+    assert "approve-per-order" in text
+    assert "must not run kalshi-live" in text
+    assert "kalshi-live book" not in text
     assert "stubbed" in text
     assert "stop" in text.lower()
     assert "no saved walks yet" in text

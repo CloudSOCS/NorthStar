@@ -14,11 +14,12 @@ from poly.practice.walk import (
 STATUS_SCHEMA = 1
 # Locked product path. Fences are hardcoded on purpose.
 FENCES = {
-    "live_orders": "unwired",
+    "live_orders": "approve-per-order",
     "generator": "stubbed",
     "graph_command": "stop",
     "source": "static",
 }
+HELPER = "must not run kalshi-live"
 CONTINUE = [
     "uv run northstar status --json",
     "uv run northstar practice walk --demo --save",
@@ -47,6 +48,7 @@ def product_status_payload(entries: Optional[List[Dict[str, Any]]] = None) -> Di
         "fences": dict(FENCES),
         "last_walk": last,
         "last_walk_kind": last_walk_kind(last),
+        "helper": HELPER,
         "continue": list(CONTINUE),
     }
 

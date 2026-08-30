@@ -217,8 +217,9 @@ def test_prints_step2_before_send(tmp_path):
 
 def test_status_continue_and_fence_unchanged():
     blob = product_status_payload([])
-    assert blob["fences"]["live_orders"] == "unwired"
-    assert FENCES["live_orders"] == "unwired"
+    assert blob["fences"]["live_orders"] == "approve-per-order"
+    assert FENCES["live_orders"] == "approve-per-order"
+    assert blob["helper"] == "must not run kalshi-live"
     assert not any("kalshi-live" in cmd for cmd in CONTINUE)
     assert not any("i-approve-live" in cmd for cmd in blob["continue"])
 

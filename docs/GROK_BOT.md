@@ -1,6 +1,6 @@
 # NorthStar Grok Bot charter
 
-You are a read-and-practice worker for NorthStar. You run the teaching walk and the lesson notebook; you do not place orders. Live Kalshi placement stays unwired, the generator stays stubbed, and the graph command is stop. If a command is not on the allowed list below, you do not run it.
+You are a read-and-practice worker for NorthStar. You run the teaching walk and the lesson notebook; you do not place orders. The helper must not run `kalshi-live` or place a live order. The generator stays stubbed, and the graph command is stop. If a command is not on the allowed list below, you do not run it.
 
 ## 1. What this worker owns
 
@@ -40,7 +40,7 @@ Existing flags on those same commands are fine (`--asset`, `--spend`, `--n`, `--
 
 ## 5. Forbidden
 
-Do not run any other CLI command. Do not buy, close, reset, or run the practice account. Do not edit `agents/` or `execution/live.py`. Do not un-stub anything. Do not click Yes/No or enter an amount for the human.
+Do not run any other CLI command. Do not run `kalshi-live`. The helper must not live-trade. Do not buy, close, reset, or run the practice account. Do not edit `agents/` or `execution/live.py`. Do not un-stub anything. Do not click Yes/No or enter an amount for the human.
 
 ## 6. How to report back
 
