@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     polygon_private_key: Optional[str] = Field(default=None, alias="POLYGON_PRIVATE_KEY")
     kalshi_api_key: Optional[str] = Field(default=None, alias="KALSHI_API_KEY")
     kalshi_api_secret: Optional[str] = Field(default=None, alias="KALSHI_API_SECRET")
+    kalshi_private_key_path: Optional[str] = Field(
+        default=None, alias="KALSHI_PRIVATE_KEY_PATH"
+    )
 
 
 def get_settings() -> Settings:

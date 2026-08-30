@@ -17,6 +17,7 @@ from poly.clients.kalshi import KalshiClient
 from poly.config import ExecutionMode
 from poly.execution.dry import run_dry_loop, run_dry_snapshot
 from poly.execution.kalshi_dry import run_kalshi_dry_loop, run_kalshi_dry_snapshot
+from poly.execution.kalshi_live import LiveRequest, LIVE_REFUSE_FOOTER, attempt_live_book
 from poly.strategies.cross_arb import find_all_arbs, find_arb_for_asset
 from poly.execution.paper import (
     pick_explanation_window,
@@ -485,6 +486,59 @@ def kalshi_dry_cmd(
         alert=alert_cfg,
         open_site=open_site,
     )
+
+
+kalshi_live_app = typer.Typer(
+    help="One-shot Kalshi live book. Human APPROVE required. Not on the helper allowlist."
+)
+app.add_typer(kalshi_live_app, name="kalshi-live")
+
+
+@kalshi_live_app.command("book")
+def kalshi_live_book(
+    ticker: str = typer.Option(..., "--ticker", help="Kalshi market ticker"),
+    side: str = typer.Option(..., "--side", help="yes or no"),
+    spend: float = typer.Option(..., "--spend", help="Dollars in (max $5)"),
+    yes_price: float = typer.Option(..., "--yes-price", help="YES ticket price"),
+    no_price: float = typer.Option(..., "--no-price", help="NO ticket price"),
+    edge: str = typer.Option(..., "--edge", help="Stored guess gap, or 'not ready'"),
+    approve_live: bool = typer.Option(
+        False, "--i-approve-live", help="Required. Human APPROVE for this order."
+    ),
+    approve_not_ready: bool = typer.Option(
+        False,
+        "--i-approve-not-ready",
+        help="Required if edge is not ready. Does not invent a guess.",
+    ),
+    both: bool = typer.Option(
+        False, "--both", help="Both sides only if the pair costs under $1"
+    ),
+) -> None:
+    """One-shot live book. Fail-closed. Helper must not run this."""
+    try:
+        raw_edge: object = float(edge)
+    except ValueError:
+        raw_edge = edge
+    result = attempt_live_book(
+        LiveRequest(
+            ticker=ticker,
+            side=side,
+            spend=spend,
+            yes_price=yes_price,
+            no_price=no_price,
+            edge=raw_edge,
+            approve_live=approve_live,
+            approve_not_ready=approve_not_ready,
+            both=both,
+        ),
+        settings=Settings(),
+        sender=None,
+    )
+    console.print(result.message)
+    if not result.sent:
+        if LIVE_REFUSE_FOOTER not in result.message:
+            console.print(f"[dim]{LIVE_REFUSE_FOOTER}[/dim]")
+        raise typer.Exit(1)
 
 
 practice_app = typer.Typer(help="Virtual trading and teaching walk (no live orders)")
