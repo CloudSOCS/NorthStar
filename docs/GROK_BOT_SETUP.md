@@ -47,7 +47,7 @@ uv run northstar practice walk --save
 uv run northstar practice last --json
 ```
 
-You should get JSON with a non-empty `entries` list. The newest lesson is first. Quote only what it printed.
+You should get JSON with a non-empty `entries` list. The newest lesson is first. After `--demo --save`, that entry should show `"kind": "demo"` and `"source": "demo"`. Quote only what it printed.
 
 ## 6. What “done” looks like
 

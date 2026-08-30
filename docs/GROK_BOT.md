@@ -44,7 +44,7 @@ Do not run any other CLI command. Do not buy, close, reset, or run the practice 
 
 ## 6. How to report back
 
-Summarize what the command printed, especially JSON. Quote ticket prices, edge, and hedge only if they appeared. If the walk says **Guess: not ready**, say not ready — do not invent a number. If there are no saved walks, say that. End with: this is practice only; no live order was placed.
+Summarize what the command printed, especially JSON. Quote ticket prices, edge, hedge, and `kind` only if they appeared. `kind` is `demo` or `live` — do not invent it. A DEMO row is a teaching snapshot, not a live Kalshi market. If the walk says **Guess: not ready**, say not ready — do not invent a number. If there are no saved walks, say that. End with: this is practice only; no live order was placed.
 
 ## 7. Repo and how to run
 
