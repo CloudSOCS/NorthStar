@@ -24,7 +24,6 @@ BANNER = "This is a teaching walk of a real market — no order will be placed"
 DEMO_BANNER = (
     "This is a demo snapshot, not a live Kalshi market — no order will be placed"
 )
-REPLAY_BANNER = "This is a notebook replay of a saved lesson — no order will be placed"
 REPLAY_FOOTER = "This is a notebook replay — no live order was placed"
 JOURNAL_SCHEMA = 1
 SAVE_NOTE = "Saved this lesson snapshot — a notebook, not a trade."
@@ -116,9 +115,7 @@ def format_walk(
     cost = pair_cost(yes, no)
     cheap = cost < 1.0
 
-    if replay:
-        banner = REPLAY_BANNER
-    elif demo:
+    if demo:
         banner = DEMO_BANNER
     else:
         banner = BANNER
@@ -300,17 +297,35 @@ def format_journal_edge(edge: Any) -> str:
         return "not ready"
 
 
+def last_walk_kind(entry: Optional[Dict[str, Any]]) -> Optional[str]:
+    """demo vs live. Derived at print time. Does not invent prices."""
+    if not entry:
+        return None
+    if entry.get("source") == "demo" or str(entry.get("asset") or "") == "DEMO":
+        return "demo"
+    return "live"
+
+
 def recent_journal_entries(entries: List[Dict[str, Any]], last: int) -> List[Dict[str, Any]]:
     """Newest first, at most `last` snapshots."""
     n = clamp_last(last)
     return list(reversed(entries[-n:]))
 
 
+def _entry_with_kind(entry: Dict[str, Any]) -> Dict[str, Any]:
+    row = dict(entry)
+    kind = last_walk_kind(row)
+    if kind is not None:
+        row["kind"] = kind
+    return row
+
+
 def dump_journal_json(entries: List[Dict[str, Any]], last: int) -> Dict[str, Any]:
     """Machine-readable view of saved lessons. Newest first. Does not write."""
+    rows = [_entry_with_kind(e) for e in recent_journal_entries(entries or [], last)]
     return {
         "schema_version": JOURNAL_SCHEMA,
-        "entries": recent_journal_entries(entries or [], last),
+        "entries": rows,
     }
 
 

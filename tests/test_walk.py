@@ -8,7 +8,6 @@ from poly.practice.walk import (
     DEMO_BANNER,
     FOOTER,
     MAX_SPEND,
-    REPLAY_BANNER,
     REPLAY_FOOTER,
     WalkQuote,
     append_journal_entry,
@@ -254,8 +253,23 @@ def test_dump_journal_json_newest_first_and_sliced():
     blob = dump_journal_json(entries, last=2)
     assert blob["schema_version"] == 1
     assert [e["asset"] for e in blob["entries"]] == ["SOL", "ETH"]
-    assert blob["entries"][0] is entries[2]
+    assert [e["kind"] for e in blob["entries"]] == ["live", "live"]
+    assert blob["entries"][0] is not entries[2]
+    assert "kind" not in entries[2]
     assert [e["asset"] for e in entries] == ["BTC", "ETH", "SOL"]
+
+
+def test_dump_journal_json_labels_demo_and_live():
+    entries = [
+        {"saved_at": "a", "asset": "DEMO", "source": "demo", "edge": 0.1},
+        {"saved_at": "b", "asset": "BTC", "edge": "not ready"},
+    ]
+    blob = dump_journal_json(entries, last=5)
+    assert [e["kind"] for e in blob["entries"]] == ["live", "demo"]
+    assert blob["entries"][0]["asset"] == "BTC"
+    assert blob["entries"][1]["source"] == "demo"
+    assert "kind" not in entries[0]
+    assert "kind" not in entries[1]
 
 
 def test_quote_from_journal_not_ready():
@@ -273,10 +287,10 @@ def test_quote_from_journal_not_ready():
     assert quote.model_prob is None
     assert quote.edge is None
     text = format_walk(quote, spend, replay=True, saved_at="2026-08-26T12:00:00-05:00")
-    assert REPLAY_BANNER in text
+    assert BANNER in text
+    assert DEMO_BANNER not in text
     assert REPLAY_FOOTER in text
     assert "Guess: not ready" in text
-    assert BANNER not in text
     assert FOOTER not in text
 
 
@@ -296,9 +310,9 @@ def test_quote_from_journal_rebuilds_guess_from_edge():
     text = format_walk(
         quote, spend, replay=True, saved_at="2026-08-26T15:14:00-05:00"
     )
-    assert REPLAY_BANNER in text
+    assert BANNER in text
+    assert DEMO_BANNER not in text
     assert REPLAY_FOOTER in text
-    assert BANNER not in text
     assert FOOTER not in text
     assert "Saved at: 2026-08-26 15:14" in text
     assert "Step 1" in text
@@ -391,6 +405,119 @@ def test_practice_journal_without_json_stays_human(monkeypatch, tmp_path):
     result = _invoke_practice(["journal"], monkeypatch, path)
     assert result.exit_code == 0
     assert "No saved walks yet" in result.stdout
+
+
+def _write_mixed_journal(path):
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "entries": [
+                    {
+                        "saved_at": "2026-08-29T18:44:15+00:00",
+                        "asset": "DEMO",
+                        "source": "demo",
+                        "yes_price": 0.40,
+                        "no_price": 0.40,
+                        "spend": 2.0,
+                        "edge": 0.1,
+                        "hedge": "CHEAP PAIR",
+                    },
+                    {
+                        "saved_at": "2026-08-30T16:55:24+00:00",
+                        "asset": "BTC",
+                        "yes_price": 0.80,
+                        "no_price": 0.21,
+                        "spend": 2.0,
+                        "edge": "not ready",
+                        "hedge": "SKIP",
+                    },
+                ],
+            }
+        )
+    )
+
+
+def test_practice_journal_table_kind_column_mixed(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    _write_mixed_journal(path)
+    before = path.read_text()
+    result = _invoke_practice(["journal"], monkeypatch, path)
+    assert result.exit_code == 0
+    text = result.stdout
+    assert "Kind" in text
+    assert "demo" in text
+    assert "live" in text
+    assert "DEMO" in text
+    assert "BTC" in text
+    assert "kind" not in json.loads(path.read_text())["entries"][0]
+    assert path.read_text() == before
+
+
+def test_practice_journal_json_kind_on_each_entry(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    _write_mixed_journal(path)
+    before = path.read_text()
+    result = _invoke_practice(["journal", "--json"], monkeypatch, path)
+    assert result.exit_code == 0
+    blob = json.loads(result.stdout)
+    assert blob["schema_version"] == 1
+    assert [e["asset"] for e in blob["entries"]] == ["BTC", "DEMO"]
+    assert [e["kind"] for e in blob["entries"]] == ["live", "demo"]
+    assert blob["entries"][1]["source"] == "demo"
+    assert "kind" not in json.loads(path.read_text())["entries"][0]
+    assert path.read_text() == before
+
+
+def test_practice_last_json_live_row_kind(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    _write_mixed_journal(path)
+    result = _invoke_practice(["last", "--json"], monkeypatch, path)
+    assert result.exit_code == 0
+    blob = json.loads(result.stdout)
+    assert len(blob["entries"]) == 1
+    assert blob["entries"][0]["asset"] == "BTC"
+    assert blob["entries"][0]["kind"] == "live"
+    assert "source" not in blob["entries"][0]
+
+
+def test_practice_last_json_demo_row_kind(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "entries": [
+                    {
+                        "saved_at": "2026-08-29T18:44:15+00:00",
+                        "asset": "DEMO",
+                        "source": "demo",
+                        "edge": 0.1,
+                        "hedge": "CHEAP PAIR",
+                    }
+                ],
+            }
+        )
+    )
+    result = _invoke_practice(["last", "--json"], monkeypatch, path)
+    assert result.exit_code == 0
+    blob = json.loads(result.stdout)
+    assert blob["entries"][0]["kind"] == "demo"
+    assert blob["entries"][0]["source"] == "demo"
+
+
+def test_practice_last_human_demo_vs_live_banner(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    _write_mixed_journal(path)
+    live = _invoke_practice(["last"], monkeypatch, path)
+    assert live.exit_code == 0
+    assert BANNER in live.stdout
+    assert DEMO_BANNER not in live.stdout
+    assert REPLAY_FOOTER in live.stdout
+    demo = _invoke_practice(["last", "--n", "2"], monkeypatch, path)
+    assert demo.exit_code == 0
+    assert DEMO_BANNER in demo.stdout
+    assert BANNER in demo.stdout
 
 
 def test_practice_json_corrupt_journal_exits_nonzero(monkeypatch, tmp_path):

@@ -46,6 +46,7 @@ from poly.practice.walk import (
     dump_journal_json,
     demo_quote,
     is_kalshi_rate_limit,
+    last_walk_kind,
     load_journal,
     load_walk_quote,
     quote_from_journal_entry,
@@ -561,6 +562,7 @@ def practice_journal(
     rows = recent_journal_entries(entries, last)
     table = Table(title="Practice journal (lessons, not trades)")
     table.add_column("Time")
+    table.add_column("Kind")
     table.add_column("Asset", style="cyan")
     table.add_column("YES", justify="right")
     table.add_column("NO", justify="right")
@@ -570,6 +572,7 @@ def practice_journal(
     for e in rows:
         table.add_row(
             format_journal_time(str(e.get("saved_at", ""))),
+            last_walk_kind(e) or "",
             str(e.get("asset", "")),
             f"{float(e.get('yes_price', 0)):.2f}",
             f"{float(e.get('no_price', 0)):.2f}",
@@ -611,6 +614,7 @@ def practice_last(
                     spend,
                     replay=True,
                     saved_at=str(entry.get("saved_at") or ""),
+                    demo=last_walk_kind(entry) == "demo",
                 ),
                 title="NorthStar practice replay",
                 border_style="blue",

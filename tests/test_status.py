@@ -60,8 +60,10 @@ def test_product_status_uses_newest_stored_entry():
         },
     ]
     blob = product_status_payload(entries)
-    assert blob["last_walk"] == entries[1]
-    assert blob["last_walk"] is entries[1]
+    assert blob["last_walk"]["asset"] == "ETH"
+    assert blob["last_walk"]["kind"] == "live"
+    assert blob["last_walk"] is not entries[1]
+    assert "kind" not in entries[1]
     assert blob["last_walk_kind"] == "live"
     line = format_last_walk_line(blob["last_walk"])
     assert line == "ETH  2026-08-26 15:14  edge +0.10  hedge CHEAP PAIR"

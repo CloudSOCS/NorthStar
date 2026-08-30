@@ -73,7 +73,7 @@ northstar practice journal
 northstar practice journal --last 5
 northstar practice journal --json
 ```
-Shows recent saved walks (time, asset, YES/NO, spend, edge, hedge). Read-only.
+Shows recent saved walks (time, kind, asset, YES/NO, spend, edge, hedge). Read-only.
 `--json` prints the same snapshots as JSON (newest first). No order.
 
 ## 8. Replay the last saved lesson

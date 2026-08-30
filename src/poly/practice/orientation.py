@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from poly.practice.walk import dump_journal_json, format_journal_edge, format_journal_time
+from poly.practice.walk import (
+    dump_journal_json,
+    format_journal_edge,
+    format_journal_time,
+    last_walk_kind,
+)
 
 STATUS_SCHEMA = 1
 # Locked product path. Fences are hardcoded on purpose.
@@ -21,15 +26,6 @@ CONTINUE = [
     "northstar practice journal",
 ]
 STATUS_FOOTER = "This is a status check, not a trade."
-
-
-def last_walk_kind(entry: Optional[Dict[str, Any]]) -> Optional[str]:
-    """demo vs live. Does not invent prices."""
-    if not entry:
-        return None
-    if entry.get("source") == "demo" or str(entry.get("asset") or "") == "DEMO":
-        return "demo"
-    return "live"
 
 
 def format_last_walk_kind(entry: Optional[Dict[str, Any]]) -> str:
