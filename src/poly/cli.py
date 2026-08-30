@@ -37,6 +37,18 @@ from poly.practice.orientation import (
     format_last_walk_line,
     product_status_payload,
 )
+from poly.practice.paper import (
+    PAPER_FOOTER,
+    book_from_entry,
+    default_paper_path,
+    dump_paper_json,
+    format_paper_book,
+    format_paper_refuse,
+    format_paper_settle,
+    load_paper,
+    save_paper,
+    settle_paper,
+)
 from poly.practice.walk import (
     SAVE_NOTE,
     append_journal_entry,
@@ -471,6 +483,8 @@ def kalshi_dry_cmd(
 
 practice_app = typer.Typer(help="Virtual trading and teaching walk (no live orders)")
 app.add_typer(practice_app, name="practice")
+paper_app = typer.Typer(help="Paper fills from a saved walk (no live orders)")
+practice_app.add_typer(paper_app, name="paper")
 
 
 @practice_app.command("walk")
@@ -622,6 +636,123 @@ def practice_last(
                 border_style="blue",
             )
         )
+
+
+def _read_paper_file(*, as_json: bool):
+    path = default_paper_path()
+    try:
+        return path, load_paper(path)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        msg = f"Could not read paper positions: {exc}"
+        if as_json:
+            typer.echo(msg, err=True)
+        else:
+            console.print(f"[red]{msg}[/red]")
+        raise typer.Exit(1)
+
+
+def _newest_journal_entry():
+    _path, blob = _read_practice_journal(as_json=False)
+    entries = blob.get("entries") or []
+    if not entries:
+        return None
+    return entries[-1]
+
+
+@paper_app.command("book")
+def practice_paper_book(
+    last: bool = typer.Option(
+        True, "--last", help="Book from the newest saved walk (the only source)"
+    ),
+    side: str = typer.Option("yes", "--side", help="yes or no (ignored with --both)"),
+    both: bool = typer.Option(
+        False, "--both", help="Book both sides only if the pair costs under $1"
+    ),
+) -> None:
+    """Book a paper fill from a saved walk. Not a live order."""
+    del last
+    entry = _newest_journal_entry()
+    if entry is None:
+        console.print("[dim]No saved walks yet. Run: northstar practice walk --save[/dim]")
+        console.print(f"[dim]{PAPER_FOOTER}[/dim]")
+        raise typer.Exit(1)
+    try:
+        booked = book_from_entry(entry, side=side, both=both)
+    except ValueError as exc:
+        console.print(format_paper_refuse(str(exc)))
+        raise typer.Exit(1)
+    positions = list(booked) if isinstance(booked, tuple) else [booked]
+    path = default_paper_path()
+    blob = load_paper(path)
+    blob["positions"].extend(positions)
+    save_paper(blob, path)
+    console.print(format_paper_book(positions))
+
+
+@paper_app.command("list")
+def practice_paper_list(
+    as_json: bool = typer.Option(
+        False, "--json", help="Print paper positions as JSON (stdout only)"
+    ),
+) -> None:
+    """List paper fills. Read-only — not a live order."""
+    path, blob = _read_paper_file(as_json=as_json)
+    positions = blob.get("positions") or []
+    if as_json:
+        print(json.dumps(dump_paper_json(positions), indent=2))
+        return
+    rows = list(reversed(positions))
+    if not rows:
+        console.print("[dim]No paper positions yet. Run: northstar practice paper book --last[/dim]")
+        console.print(f"[dim]{PAPER_FOOTER}[/dim]")
+        return
+    table = Table(title="Paper positions (not live)")
+    table.add_column("Time")
+    table.add_column("ID")
+    table.add_column("Asset")
+    table.add_column("Side")
+    table.add_column("Tickets", justify="right")
+    table.add_column("Spend", justify="right")
+    table.add_column("Status")
+    table.add_column("P&L")
+    for p in rows:
+        realized = p.get("realized_pnl")
+        pnl = format_journal_edge(realized) if realized is not None else "—"
+        table.add_row(
+            format_journal_time(str(p.get("booked_at") or "")),
+            str(p.get("id") or ""),
+            str(p.get("asset") or ""),
+            str(p.get("side") or ""),
+            f"{float(p.get('tickets') or 0):.2f}",
+            f"${float(p.get('spend') or 0):.2f}",
+            str(p.get("status") or ""),
+            pnl,
+        )
+    console.print(table)
+    console.print(f"[dim]{path}[/dim]")
+    console.print(f"[dim]{PAPER_FOOTER}[/dim]")
+
+
+@paper_app.command("settle")
+def practice_paper_settle(
+    position_id: str = typer.Option(..., "--id", help="Position id or pair id"),
+    outcome: str = typer.Option(..., "--outcome", help="yes or no"),
+) -> None:
+    """Settle a paper fill with a YES/NO outcome. Not a live order."""
+    path, blob = _read_paper_file(as_json=False)
+    try:
+        first = settle_paper(blob, position_id, outcome)
+    except ValueError as exc:
+        console.print(format_paper_refuse(str(exc)))
+        raise typer.Exit(1)
+    save_paper(blob, path)
+    pair = first.get("pair_id")
+    settled = [
+        p
+        for p in blob["positions"]
+        if p.get("id") == first.get("id") or (pair and p.get("pair_id") == pair)
+    ]
+    console.print(format_paper_settle(settled))
 
 
 def _print_account_honesty() -> None:
