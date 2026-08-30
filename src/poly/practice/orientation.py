@@ -26,6 +26,9 @@ CONTINUE = [
     "uv run northstar practice walk --save",
     "uv run northstar practice last --json",
     "uv run northstar practice journal --json",
+    "uv run northstar practice paper list",
+    "uv run northstar practice paper postmortem",
+    "uv run northstar practice paper postmortem --json",
 ]
 STATUS_FOOTER = "This is a status check, not a trade."
 

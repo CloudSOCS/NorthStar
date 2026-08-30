@@ -30,9 +30,13 @@ def test_product_status_empty_last_walk():
         "uv run northstar practice walk --save",
         "uv run northstar practice last --json",
         "uv run northstar practice journal --json",
+        "uv run northstar practice paper list",
+        "uv run northstar practice paper postmortem",
+        "uv run northstar practice paper postmortem --json",
     ]
     assert not any("buy" in cmd or "close" in cmd or "--live" in cmd for cmd in blob["continue"])
     assert not any("kalshi-live" in cmd for cmd in blob["continue"])
+    assert not any("paper book" in cmd or "paper settle" in cmd for cmd in blob["continue"])
     assert format_last_walk_line(None) == "no saved walks yet"
 
 
@@ -178,6 +182,11 @@ def test_status_human_empty_and_continue(monkeypatch, tmp_path):
     assert "uv run northstar practice walk --save" in text
     assert "uv run northstar practice last --json" in text
     assert "uv run northstar practice journal --json" in text
+    assert "uv run northstar practice paper list" in text
+    assert "uv run northstar practice paper postmortem" in text
+    assert "uv run northstar practice paper postmortem --json" in text
+    assert "paper book" not in text
+    assert "paper settle" not in text
     assert "This is a status check, not a trade." in text
     assert "Places real orders" not in text
 

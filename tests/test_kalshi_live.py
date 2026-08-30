@@ -222,6 +222,7 @@ def test_status_continue_and_fence_unchanged():
     assert blob["helper"] == "must not run kalshi-live"
     assert not any("kalshi-live" in cmd for cmd in CONTINUE)
     assert not any("i-approve-live" in cmd for cmd in blob["continue"])
+    assert not any("paper book" in cmd or "paper settle" in cmd for cmd in CONTINUE)
 
 
 def test_kalshi_live_module_does_not_import_graph_or_loop():

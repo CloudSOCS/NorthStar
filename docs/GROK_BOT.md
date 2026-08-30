@@ -33,14 +33,17 @@ uv run northstar practice last
 uv run northstar practice last --json
 uv run northstar practice journal
 uv run northstar practice journal --json
+uv run northstar practice paper list
+uv run northstar practice paper postmortem
+uv run northstar practice paper postmortem --json
 ```
 
-Existing flags on those same commands are fine (`--asset`, `--spend`, `--n`, `--last`, `--demo`). Nothing else.
+Existing flags on those same commands are fine (`--asset`, `--spend`, `--n`, `--last`, `--demo`, `--json`). Nothing else.
 `--demo` is a teaching snapshot, not a live Kalshi market.
 
 ## 5. Forbidden
 
-Do not run any other CLI command. Do not run `kalshi-live`. The helper must not live-trade. Do not buy, close, reset, or run the practice account. Do not edit `agents/` or `execution/live.py`. Do not un-stub anything. Do not click Yes/No or enter an amount for the human.
+Do not run any other CLI command. Do not run `kalshi-live`. Do not run `practice paper book` or `practice paper settle`. The helper must not live-trade and must not book or settle paper fills. Do not buy, close, reset, or run the practice account. Do not edit `agents/` or `execution/live.py`. Do not un-stub anything. Do not click Yes/No or enter an amount for the human.
 
 ## 6. How to report back
 
