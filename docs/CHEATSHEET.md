@@ -53,6 +53,7 @@ git pull origin main
 northstar practice status
 northstar practice pnl
 ```
+Fake-money wallet (not Kalshi live). For ticket / P&L / edge / hedge, use `northstar practice walk`.
 
 ## 6. Walk a real Kalshi market through Steps 1–4 (no order)
 ```bash

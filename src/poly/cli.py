@@ -23,6 +23,8 @@ from poly.execution.paper import (
     run_paper_backtest,
 )
 from poly.practice.account import (
+    ACCOUNT_BANNER,
+    ACCOUNT_WALK_HINT,
     default_state_path,
     load_account,
     save_account,
@@ -622,6 +624,11 @@ def practice_last(
         )
 
 
+def _print_account_honesty() -> None:
+    console.print(f"[dim]{ACCOUNT_BANNER}[/dim]")
+    console.print(f"[dim]{ACCOUNT_WALK_HINT}[/dim]")
+
+
 @practice_app.command("pnl")
 def practice_pnl() -> None:
     """Bottom-line: are you up or down on the practice account?"""
@@ -631,12 +638,13 @@ def practice_pnl() -> None:
     equity = account.bankroll + risk
     total_vs_start = equity - account.starting_bankroll
     color = "green" if total_vs_start >= 0 else "red"
+    _print_account_honesty()
     console.print(
-        f"\n[bold]Practice PnL[/bold]\n"
+        f"\n[bold]Practice P&L[/bold]\n"
         f"  Starting bankroll:  ${account.starting_bankroll:,.2f}\n"
         f"  Cash now:           ${account.bankroll:,.2f}\n"
         f"  Capital at risk:    ${risk:,.2f}\n"
-        f"  Realized PnL:       ${realized:+,.2f}\n"
+        f"  Realized P&L:       ${realized:+,.2f}\n"
         f"  [bold {color}]Total vs start:     ${total_vs_start:+,.2f}[/bold {color}]\n"
         f"  [dim](Open positions valued at cost until closed — "
         f"use `practice status` for per-position detail.)[/dim]\n"
@@ -647,6 +655,7 @@ def practice_pnl() -> None:
 def practice_status() -> None:
     """Show the current practice account: cash, open positions, history."""
     account = load_account()
+    _print_account_honesty()
 
     table = Table(title="Practice account")
     table.add_column("Metric", style="cyan")
@@ -654,7 +663,7 @@ def practice_status() -> None:
     table.add_row("Cash", f"${account.bankroll:,.2f}")
     table.add_row("Starting bankroll", f"${account.starting_bankroll:,.2f}")
     table.add_row("Open positions", str(len(account.open_positions())))
-    table.add_row("Realized PnL", f"${account.total_realized_pnl():+,.2f}")
+    table.add_row("Realized P&L", f"${account.total_realized_pnl():+,.2f}")
     table.add_row("Capital at risk", f"${account.total_capital_at_risk():,.2f}")
     table.add_row("State file", str(default_state_path()))
     console.print(table)
@@ -665,7 +674,7 @@ def practice_status() -> None:
         pos_table.add_column("ID")
         pos_table.add_column("Asset")
         pos_table.add_column("Side")
-        pos_table.add_column("Shares", justify="right")
+        pos_table.add_column("Tickets", justify="right")
         pos_table.add_column("Entry", justify="right")
         pos_table.add_column("Cost", justify="right")
         pos_table.add_column("Strategy", style="dim")
@@ -687,7 +696,7 @@ def practice_status() -> None:
         hist_table.add_column("Side")
         hist_table.add_column("Entry", justify="right")
         hist_table.add_column("Close", justify="right")
-        hist_table.add_column("PnL", justify="right")
+        hist_table.add_column("P&L", justify="right")
         hist_table.add_column("Note", style="dim")
         for ev in account.history[-8:]:
             pnl_style = "green" if ev.realized_pnl >= 0 else "red"
@@ -763,12 +772,13 @@ def practice_buy(
     )
     save_account(account)
     console.print(
-        f"[green]Bought {pos.shares:.2f} {pos.asset} {pos.side} @ {pos.entry_price:.3f} "
+        f"[green]Bought {pos.shares:.2f} {pos.asset} {pos.side} tickets @ {pos.entry_price:.3f} "
         f"for ${pos.capital_used:.2f}[/green]"
     )
     console.print(f"  position id: [bold]{pos.id}[/bold]")
     console.print(f"  market: {m.question}")
     console.print(f"  cash remaining: ${account.bankroll:,.2f}")
+    _print_account_honesty()
 
 
 @practice_app.command("close")
@@ -808,6 +818,7 @@ def practice_close(
         f"[{pnl_style}]${ev.realized_pnl:+,.2f}[/]"
     )
     console.print(f"  cash now: ${account.bankroll:,.2f}")
+    _print_account_honesty()
 
 
 @practice_app.command("run")
@@ -833,6 +844,7 @@ def practice_run(
         raise typer.Exit(1)
 
     asset_list = [a.strip().upper() for a in assets.split(",") if a.strip()]
+    _print_account_honesty()
     run_practice_session(
         duration_seconds=duration,
         settings=settings,

@@ -18,6 +18,13 @@ from typing import Dict, List, Literal, Optional
 
 Side = Literal["UP", "DOWN"]
 
+ACCOUNT_BANNER = (
+    "This is a fake-money wallet, not a Kalshi live account — no live order will be placed."
+)
+ACCOUNT_WALK_HINT = (
+    "Four-step lesson (ticket, P&L, edge, hedge): northstar practice walk"
+)
+
 
 @dataclass
 class Position:

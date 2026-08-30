@@ -66,3 +66,57 @@ def test_close_at_price():
     # 40 * 0.7 = 28, paid 20 → +8
     assert ev.realized_pnl == pytest.approx(8.0)
     assert acc.bankroll == pytest.approx(108.0)
+
+
+ACCOUNT_BANNER = (
+    "This is a fake-money wallet, not a Kalshi live account — no live order will be placed."
+)
+ACCOUNT_WALK_HINT = (
+    "Four-step lesson (ticket, P&L, edge, hedge): northstar practice walk"
+)
+
+
+def _invoke_account(args, monkeypatch, path):
+    from typer.testing import CliRunner
+
+    from poly.cli import app
+
+    monkeypatch.setenv("POLY_PRACTICE_FILE", str(path))
+    return CliRunner().invoke(app, ["practice", *args])
+
+
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def test_practice_status_honesty_banner_and_tickets(monkeypatch, tmp_path):
+    path = tmp_path / "practice.json"
+    acc = PracticeAccount(bankroll=80, starting_bankroll=100)
+    acc.buy("btc-updown-5m-1", "BTC", "UP", usd=20, price=0.80)
+    save_account(acc, path)
+    result = _invoke_account(["status"], monkeypatch, path)
+    assert result.exit_code == 0
+    text = _flat(result.stdout)
+    assert ACCOUNT_BANNER in text
+    assert ACCOUNT_WALK_HINT in text
+    assert "Tickets" in text
+    assert "Shares" not in text
+    assert "Realized P&L" in text
+    assert "Realized PnL" not in text
+    assert "Kalshi" in text
+    assert "practice walk" in text
+
+
+def test_practice_pnl_honesty_banner_and_spelling(monkeypatch, tmp_path):
+    path = tmp_path / "practice.json"
+    acc = PracticeAccount(bankroll=100, starting_bankroll=100)
+    save_account(acc, path)
+    result = _invoke_account(["pnl"], monkeypatch, path)
+    assert result.exit_code == 0
+    text = _flat(result.stdout)
+    assert ACCOUNT_BANNER in text
+    assert ACCOUNT_WALK_HINT in text
+    assert "Practice P&L" in text
+    assert "Realized P&L" in text
+    assert "Practice PnL" not in text
+    assert "Realized PnL" not in text
