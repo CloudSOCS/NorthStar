@@ -21,6 +21,8 @@ from poly.practice.walk import (
 PAPER_SCHEMA = 1
 PAPER_FOOTER = "This is paper only — no live order was placed."
 PAPER_BANNER = "This is a paper fill — no live order will be placed"
+POSTMORTEM_FOOTER = "This is a paper post-mortem — no live order, graph not written"
+POSTMORTEM_BANNER = POSTMORTEM_FOOTER
 BOTH_REFUSE = (
     "Will not book both sides. Pair is not a cheap hedge (need pair cost under $1)."
 )
@@ -223,6 +225,95 @@ def format_paper_settle(positions: List[Dict[str, Any]]) -> str:
 
 def format_paper_refuse(message: str) -> str:
     return f"{message}\n{PAPER_FOOTER}\n"
+
+
+def paper_lesson(pos: Dict[str, Any]) -> str:
+    """One lesson from stored paper fields. Does not invent edge."""
+    side = str(pos.get("side") or "").upper()
+    outcome = str(pos.get("outcome") or "").upper()
+    if pos.get("pair_id"):
+        lead = "You booked both sides (a hedge). A hedge is not edge."
+    else:
+        lead = f"You booked one {side} ticket, not a hedge."
+    if str(pos.get("side") or "") == str(pos.get("outcome") or ""):
+        step = "Outcome matched your side. Step 2: you won."
+    else:
+        step = f"Outcome was {outcome}. Step 2: you lost the dollars in."
+    return (
+        f"{lead} {step} This fill does not store a guess — do not invent edge."
+    )
+
+
+def select_closed_paper(
+    positions: List[Dict[str, Any]],
+    target_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Newest closed fill, or --id if that row is settled. Does not write."""
+    if target_id:
+        hits = [p for p in positions if p.get("id") == target_id]
+        if not hits:
+            raise ValueError(f"No paper position with id {target_id}")
+        pos = hits[0]
+        if pos.get("status") != "settled":
+            raise ValueError(f"Position {target_id} is still open. Settle it first.")
+        return pos
+    closed = [p for p in positions if p.get("status") == "settled"]
+    if not closed:
+        raise ValueError("No closed paper fills yet.")
+    return closed[-1]
+
+
+def postmortem_entry(pos: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": pos.get("id"),
+        "kind": "paper",
+        "asset": pos.get("asset"),
+        "question": pos.get("question"),
+        "side": pos.get("side"),
+        "ticket_price": pos.get("ticket_price"),
+        "spend": pos.get("spend"),
+        "tickets": pos.get("tickets"),
+        "outcome": pos.get("outcome"),
+        "realized_pnl": pos.get("realized_pnl"),
+        "hedge_booked": bool(pos.get("pair_id")),
+        "lesson": paper_lesson(pos),
+    }
+
+
+def dump_postmortem_json(positions: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Zero or one closed fill. Does not write."""
+    return {
+        "schema_version": PAPER_SCHEMA,
+        "entries": [postmortem_entry(p) for p in positions],
+    }
+
+
+def format_paper_postmortem(pos: Dict[str, Any]) -> str:
+    side = str(pos.get("side") or "").upper()
+    outcome = str(pos.get("outcome") or "").upper()
+    price = float(pos.get("ticket_price") or 0.0)
+    spend = float(pos.get("spend") or 0.0)
+    tickets = float(pos.get("tickets") or 0.0)
+    realized = float(pos.get("realized_pnl") or 0.0)
+    lines = [
+        POSTMORTEM_BANNER,
+        "",
+        f"{pos.get('asset')} — {pos.get('question')}",
+        (
+            f"Booked: {side} ticket at {price:.2f} ({price * 100:.0f}¢). "
+            f"${spend:.2f} → {tickets:.2f} tickets. kind: paper"
+        ),
+        f"Outcome: {outcome}",
+        f"P&L: {_signed(realized)}",
+        f"Lesson: {paper_lesson(pos)}",
+        "",
+        POSTMORTEM_FOOTER,
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def format_postmortem_refuse(message: str) -> str:
+    return f"{message}\n{POSTMORTEM_FOOTER}\n"
 
 
 def _signed(amount: float) -> str:

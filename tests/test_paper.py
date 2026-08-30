@@ -5,10 +5,15 @@ import pytest
 from poly.practice.paper import (
     PAPER_FOOTER,
     PAPER_SCHEMA,
+    POSTMORTEM_FOOTER,
     book_from_entry,
     default_paper_path,
     dump_paper_json,
+    dump_postmortem_json,
+    format_paper_postmortem,
     load_paper,
+    paper_lesson,
+    select_closed_paper,
     settle_paper,
 )
 from poly.practice.walk import last_walk_kind
@@ -143,6 +148,75 @@ def test_paper_module_does_not_import_live():
     assert "execution.live" not in source
     assert "hypothesis_graph" not in source
     assert "load_walk_quote" not in source
+    assert "agents." not in source
+    assert "propose_experiment" not in source
+
+
+def _closed_btc(*, outcome: str) -> dict:
+    pos = book_from_entry(BTC_SKIP, side="yes")
+    blob = {"schema_version": 1, "positions": [pos]}
+    return settle_paper(blob, pos["id"], outcome=outcome)
+
+
+def test_paper_lesson_lose_does_not_invent_edge():
+    pos = _closed_btc(outcome="no")
+    lesson = paper_lesson(pos)
+    assert lesson == (
+        "You booked one YES ticket, not a hedge. Outcome was NO. "
+        "Step 2: you lost the dollars in. "
+        "This fill does not store a guess — do not invent edge."
+    )
+    assert "not ready" not in lesson
+    assert "+0.10" not in lesson
+
+
+def test_paper_lesson_win_and_hedge():
+    won = _closed_btc(outcome="yes")
+    assert paper_lesson(won) == (
+        "You booked one YES ticket, not a hedge. "
+        "Outcome matched your side. Step 2: you won. "
+        "This fill does not store a guess — do not invent edge."
+    )
+    yes, no = book_from_entry(DEMO_CHEAP, both=True)
+    blob = {"schema_version": 1, "positions": [yes, no]}
+    settle_paper(blob, yes["pair_id"], outcome="yes")
+    lesson = paper_lesson(blob["positions"][0])
+    assert "both sides (a hedge)" in lesson
+    assert "A hedge is not edge." in lesson
+
+
+def test_select_closed_newest_ignores_open():
+    open_pos = book_from_entry(DEMO_CHEAP, side="yes")
+    closed = _closed_btc(outcome="no")
+    chosen = select_closed_paper([open_pos, closed])
+    assert chosen["id"] == closed["id"]
+    try:
+        select_closed_paper([open_pos])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected refuse when none closed")
+    try:
+        select_closed_paper([open_pos, closed], target_id=open_pos["id"])
+    except ValueError as exc:
+        assert "open" in str(exc).lower()
+    else:
+        raise AssertionError("expected refuse open id")
+
+
+def test_dump_postmortem_json_empty():
+    assert dump_postmortem_json([]) == {"schema_version": 1, "entries": []}
+
+
+def test_format_postmortem_lose_shape():
+    pos = _closed_btc(outcome="no")
+    text = format_paper_postmortem(pos)
+    assert POSTMORTEM_FOOTER in text
+    assert "Booked: YES ticket at 0.80 (80¢)" in text
+    assert "Outcome: NO" in text
+    assert "P&L: -$2.00" in text
+    assert "kind: paper" in text
+    assert "do not invent edge" in text
 
 
 def _write_journal(path, entries):
@@ -243,6 +317,57 @@ def test_practice_paper_list_json_empty(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert json.loads(result.stdout) == {"schema_version": 1, "positions": []}
     assert not paper.exists()
+
+
+def test_practice_paper_postmortem_json_empty(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "missing_paper.json"
+    result = _invoke_paper(["postmortem", "--json"], monkeypatch, journal, paper)
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == {"schema_version": 1, "entries": []}
+    assert not paper.exists()
+
+
+def test_practice_paper_postmortem_open_id_refuses(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    _write_journal(journal, [BTC_SKIP])
+    booked = _invoke_paper(["book"], monkeypatch, journal, paper)
+    assert booked.exit_code == 0
+    pid = json.loads(paper.read_text())["positions"][0]["id"]
+    before = paper.read_text()
+    result = _invoke_paper(
+        ["postmortem", "--id", pid], monkeypatch, journal, paper
+    )
+    assert result.exit_code == 1
+    assert POSTMORTEM_FOOTER in (result.stdout or "") + (result.stderr or "")
+    assert paper.read_text() == before
+
+
+def test_practice_paper_postmortem_closed_lose(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    _write_journal(journal, [BTC_SKIP])
+    _invoke_paper(["book"], monkeypatch, journal, paper)
+    pid = json.loads(paper.read_text())["positions"][0]["id"]
+    _invoke_paper(["settle", "--id", pid, "--outcome", "no"], monkeypatch, journal, paper)
+    human = _invoke_paper(["postmortem"], monkeypatch, journal, paper)
+    assert human.exit_code == 0
+    assert POSTMORTEM_FOOTER in human.stdout
+    assert "Outcome: NO" in human.stdout
+    assert "P&L: -$2.00" in human.stdout
+    assert "do not invent edge" in human.stdout
+    dumped = _invoke_paper(["postmortem", "--json"], monkeypatch, journal, paper)
+    blob = json.loads(dumped.stdout)
+    assert blob["schema_version"] == 1
+    assert len(blob["entries"]) == 1
+    row = blob["entries"][0]
+    assert row["id"] == pid
+    assert row["kind"] == "paper"
+    assert row["hedge_booked"] is False
+    assert row["outcome"] == "no"
+    assert row["realized_pnl"] == -2.0
+    assert "do not invent edge" in row["lesson"]
 
 
 def test_paper_backtest_runs():

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Optional
 import json
 
 import httpx
@@ -39,14 +40,19 @@ from poly.practice.orientation import (
 )
 from poly.practice.paper import (
     PAPER_FOOTER,
+    POSTMORTEM_FOOTER,
     book_from_entry,
     default_paper_path,
     dump_paper_json,
+    dump_postmortem_json,
     format_paper_book,
+    format_paper_postmortem,
     format_paper_refuse,
     format_paper_settle,
+    format_postmortem_refuse,
     load_paper,
     save_paper,
+    select_closed_paper,
     settle_paper,
 )
 from poly.practice.walk import (
@@ -753,6 +759,36 @@ def practice_paper_settle(
         if p.get("id") == first.get("id") or (pair and p.get("pair_id") == pair)
     ]
     console.print(format_paper_settle(settled))
+
+
+@paper_app.command("postmortem")
+def practice_paper_postmortem(
+    position_id: Optional[str] = typer.Option(
+        None, "--id", help="Closed paper position id"
+    ),
+    as_json: bool = typer.Option(
+        False, "--json", help="Print the post-mortem as JSON (stdout only)"
+    ),
+) -> None:
+    """Read a closed paper fill. Does not write the graph. Not a live order."""
+    _path, blob = _read_paper_file(as_json=as_json)
+    positions = blob.get("positions") or []
+    if position_id is None and not any(p.get("status") == "settled" for p in positions):
+        if as_json:
+            print(json.dumps(dump_postmortem_json([]), indent=2))
+            return
+        console.print("[dim]No closed paper fills yet.[/dim]")
+        console.print(f"[dim]{POSTMORTEM_FOOTER}[/dim]")
+        return
+    try:
+        pos = select_closed_paper(positions, target_id=position_id)
+    except ValueError as exc:
+        console.print(format_postmortem_refuse(str(exc)))
+        raise typer.Exit(1)
+    if as_json:
+        print(json.dumps(dump_postmortem_json([pos]), indent=2))
+        return
+    console.print(format_paper_postmortem(pos))
 
 
 def _print_account_honesty() -> None:
