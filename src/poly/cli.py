@@ -36,6 +36,7 @@ from poly.practice.orientation import (
     CONTINUE,
     HELPER,
     STATUS_FOOTER,
+    format_last_paper_line,
     format_last_walk_kind,
     format_last_walk_line,
     product_status_payload,
@@ -1085,8 +1086,9 @@ def status(
 ) -> None:
     """What this project is allowed to do, and the last saved lesson. Read-only."""
     _path, blob = _read_practice_journal(as_json=as_json)
+    _paper_path, paper_blob = _read_paper_file(as_json=as_json)
     entries = blob.get("entries") or []
-    payload = product_status_payload(entries)
+    payload = product_status_payload(entries, paper_blob.get("positions") or [])
     if as_json:
         print(json.dumps(payload, indent=2))
         return
@@ -1101,6 +1103,7 @@ def status(
     table.add_row("Helper", HELPER)
     table.add_row("Last lesson", format_last_walk_kind(payload["last_walk"]))
     table.add_row("Last saved lesson", format_last_walk_line(payload["last_walk"]))
+    table.add_row("Last paper fill", format_last_paper_line(payload["last_paper"]))
     table.add_row("Continue", "\n".join(CONTINUE))
     console.print(table)
     console.print(f"[dim]{STATUS_FOOTER}[/dim]")
