@@ -143,9 +143,18 @@ def _matches(pos: Dict[str, Any], target: str) -> bool:
     return pos.get("id") == target or pos.get("pair_id") == target
 
 
+def already_settled_message(pos: Dict[str, Any]) -> str:
+    outcome = str(pos.get("outcome") or "").upper()
+    realized = float(pos.get("realized_pnl") or 0.0)
+    return (
+        f"Already settled. Paper id {pos.get('id')} outcome {outcome}  "
+        f"P&L {_signed(realized)}. No change."
+    )
+
+
 def _settle_one(pos: Dict[str, Any], outcome: str, settled_at: str) -> Dict[str, Any]:
     if pos.get("status") == "settled":
-        raise ValueError(f"Position {pos.get('id')} is already settled")
+        raise ValueError(already_settled_message(pos))
     won = str(pos.get("side") or "") == outcome
     realized = float(pos["win_pnl"] if won else pos["lose_pnl"])
     pos["status"] = "settled"
@@ -167,6 +176,10 @@ def settle_paper(blob: Dict[str, Any], target_id: str, outcome: str) -> Dict[str
     pair_ids = {p.get("pair_id") for p in hits if p.get("pair_id")}
     if pair_ids:
         hits = [p for p in positions if p.get("pair_id") in pair_ids or p.get("id") == target_id]
+    already = [p for p in hits if p.get("status") == "settled"]
+    if already:
+        named = next((p for p in already if p.get("id") == target_id), already[0])
+        raise ValueError(already_settled_message(named))
     when = _now()
     settled = [_settle_one(p, outcome_n, when) for p in hits]
     return settled[0]

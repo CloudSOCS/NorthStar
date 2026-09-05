@@ -129,6 +129,25 @@ def test_settle_yes_win_and_no_lose_step2():
     assert settled["realized_pnl"] == -2.0
 
 
+def test_settle_twice_refuses_no_mutation():
+    pos = book_from_entry(BTC_SKIP, side="yes")
+    blob = {"schema_version": 1, "positions": [pos]}
+    settle_paper(blob, pos["id"], outcome="no")
+    before = json.dumps(blob)
+    try:
+        settle_paper(blob, pos["id"], outcome="yes")
+    except ValueError as exc:
+        assert str(exc) == (
+            f"Already settled. Paper id {pos['id']} outcome NO  P&L -$2.00. No change."
+        )
+    else:
+        raise AssertionError("expected refuse")
+    assert json.dumps(blob) == before
+    assert len(blob["positions"]) == 1
+    assert blob["positions"][0]["outcome"] == "no"
+    assert blob["positions"][0]["realized_pnl"] == -2.0
+
+
 LIST_KEYS = (
     "id",
     "kind",
@@ -352,6 +371,32 @@ def test_practice_paper_list_json_and_settle(monkeypatch, tmp_path):
     assert again["entries"][0]["outcome"] == "no"
     assert again["entries"][0]["realized_pnl"] == -2.0
     assert "question" not in again["entries"][0]
+
+
+def test_practice_paper_settle_twice_no_mutation(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    _write_journal(journal, [BTC_SKIP])
+    booked = _invoke_paper(["book"], monkeypatch, journal, paper)
+    assert booked.exit_code == 0
+    pid = json.loads(paper.read_text())["positions"][0]["id"]
+    first = _invoke_paper(
+        ["settle", "--id", pid, "--outcome", "no"], monkeypatch, journal, paper
+    )
+    assert first.exit_code == 0
+    before = paper.read_text()
+    second = _invoke_paper(
+        ["settle", "--id", pid, "--outcome", "yes"], monkeypatch, journal, paper
+    )
+    assert second.exit_code == 1
+    text = (second.stdout or "") + (second.stderr or "")
+    assert (
+        f"Already settled. Paper id {pid} outcome NO  P&L -$2.00. No change."
+        in text
+    )
+    assert PAPER_FOOTER in text
+    assert paper.read_text() == before
+    assert len(json.loads(before)["positions"]) == 1
 
 
 def test_practice_paper_list_json_empty(monkeypatch, tmp_path):
