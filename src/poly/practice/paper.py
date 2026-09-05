@@ -172,11 +172,27 @@ def settle_paper(blob: Dict[str, Any], target_id: str, outcome: str) -> Dict[str
     return settled[0]
 
 
+def list_entry(pos: Dict[str, Any]) -> Dict[str, Any]:
+    """Subset for paper list --json. Does not copy question, P&L forecast, or lesson."""
+    return {
+        "id": pos.get("id"),
+        "kind": "paper",
+        "asset": pos.get("asset"),
+        "side": pos.get("side"),
+        "ticket_price": pos.get("ticket_price"),
+        "spend": pos.get("spend"),
+        "tickets": pos.get("tickets"),
+        "status": pos.get("status"),
+        "outcome": pos.get("outcome"),
+        "realized_pnl": pos.get("realized_pnl"),
+    }
+
+
 def dump_paper_json(positions: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Newest first. Does not write."""
+    """Newest first. List subset only. Does not write."""
     return {
         "schema_version": PAPER_SCHEMA,
-        "positions": list(reversed(positions or [])),
+        "entries": [list_entry(p) for p in reversed(positions or [])],
     }
 
 

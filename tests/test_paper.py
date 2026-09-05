@@ -10,6 +10,7 @@ from poly.practice.paper import (
     default_paper_path,
     dump_paper_json,
     dump_postmortem_json,
+    list_entry,
     format_paper_postmortem,
     load_paper,
     paper_lesson,
@@ -128,15 +129,52 @@ def test_settle_yes_win_and_no_lose_step2():
     assert settled["realized_pnl"] == -2.0
 
 
+LIST_KEYS = (
+    "id",
+    "kind",
+    "asset",
+    "side",
+    "ticket_price",
+    "spend",
+    "tickets",
+    "status",
+    "outcome",
+    "realized_pnl",
+)
+
+
 def test_dump_paper_json_empty():
-    assert dump_paper_json([]) == {"schema_version": 1, "positions": []}
+    assert dump_paper_json([]) == {"schema_version": 1, "entries": []}
 
 
-def test_dump_paper_json_newest_first():
+def test_dump_paper_json_newest_first_subset():
     a = book_from_entry(DEMO_CHEAP, side="yes")
     b = book_from_entry(BTC_SKIP, side="yes")
     blob = dump_paper_json([a, b])
-    assert [p["asset"] for p in blob["positions"]] == ["BTC", "DEMO"]
+    assert [p["asset"] for p in blob["entries"]] == ["BTC", "DEMO"]
+    open_row = blob["entries"][0]
+    assert list(open_row) == list(LIST_KEYS)
+    assert open_row == {
+        "id": b["id"],
+        "kind": "paper",
+        "asset": "BTC",
+        "side": "yes",
+        "ticket_price": 0.8,
+        "spend": 2.0,
+        "tickets": 2.5,
+        "status": "open",
+        "outcome": None,
+        "realized_pnl": None,
+    }
+    assert "question" not in open_row
+    assert "lesson" not in open_row
+    assert "pair_id" not in open_row
+    closed = _closed_btc(outcome="no")
+    settled = list_entry(closed)
+    assert settled["status"] == "settled"
+    assert settled["outcome"] == "no"
+    assert settled["realized_pnl"] == -2.0
+    assert list(settled) == list(LIST_KEYS)
 
 
 def test_paper_module_does_not_import_live():
@@ -296,8 +334,12 @@ def test_practice_paper_list_json_and_settle(monkeypatch, tmp_path):
     assert listed.exit_code == 0
     blob = json.loads(listed.stdout)
     assert blob["schema_version"] == 1
-    assert blob["positions"][0]["kind"] == "paper"
-    pid = blob["positions"][0]["id"]
+    assert list(blob["entries"][0]) == list(LIST_KEYS)
+    assert blob["entries"][0]["kind"] == "paper"
+    assert blob["entries"][0]["status"] == "open"
+    assert blob["entries"][0]["outcome"] is None
+    assert blob["entries"][0]["realized_pnl"] is None
+    pid = blob["entries"][0]["id"]
     settled = _invoke_paper(
         ["settle", "--id", pid, "--outcome", "no"], monkeypatch, journal, paper
     )
@@ -306,8 +348,10 @@ def test_practice_paper_list_json_and_settle(monkeypatch, tmp_path):
     again = json.loads(
         _invoke_paper(["list", "--json"], monkeypatch, journal, paper).stdout
     )
-    assert again["positions"][0]["status"] == "settled"
-    assert again["positions"][0]["realized_pnl"] == -2.0
+    assert again["entries"][0]["status"] == "settled"
+    assert again["entries"][0]["outcome"] == "no"
+    assert again["entries"][0]["realized_pnl"] == -2.0
+    assert "question" not in again["entries"][0]
 
 
 def test_practice_paper_list_json_empty(monkeypatch, tmp_path):
@@ -315,8 +359,19 @@ def test_practice_paper_list_json_empty(monkeypatch, tmp_path):
     paper = tmp_path / "missing_paper.json"
     result = _invoke_paper(["list", "--json"], monkeypatch, journal, paper)
     assert result.exit_code == 0
-    assert json.loads(result.stdout) == {"schema_version": 1, "positions": []}
+    assert json.loads(result.stdout) == {"schema_version": 1, "entries": []}
     assert not paper.exists()
+
+
+def test_practice_paper_list_json_corrupt_exits_nonzero(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    journal.write_text(json.dumps({"schema_version": 1, "entries": []}))
+    paper.write_text("{not json")
+    result = _invoke_paper(["list", "--json"], monkeypatch, journal, paper)
+    assert result.exit_code == 1
+    assert result.stdout.strip() == ""
+    assert "Could not read paper" in (result.stderr or "")
 
 
 def test_practice_paper_postmortem_json_empty(monkeypatch, tmp_path):

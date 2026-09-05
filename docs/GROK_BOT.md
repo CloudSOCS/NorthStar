@@ -34,6 +34,7 @@ uv run northstar practice last --json
 uv run northstar practice journal
 uv run northstar practice journal --json
 uv run northstar practice paper list
+uv run northstar practice paper list --json
 uv run northstar practice paper postmortem
 uv run northstar practice paper postmortem --json
 ```

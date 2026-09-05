@@ -33,6 +33,7 @@ def test_product_status_empty_last_walk():
         "uv run northstar practice last --json",
         "uv run northstar practice journal --json",
         "uv run northstar practice paper list",
+        "uv run northstar practice paper list --json",
         "uv run northstar practice paper postmortem",
         "uv run northstar practice paper postmortem --json",
     ]
@@ -244,6 +245,7 @@ def test_status_human_empty_and_continue(monkeypatch, tmp_path):
     assert "uv run northstar practice last --json" in text
     assert "uv run northstar practice journal --json" in text
     assert "uv run northstar practice paper list" in text
+    assert "uv run northstar practice paper list --json" in text
     assert "uv run northstar practice paper postmortem" in text
     assert "uv run northstar practice paper postmortem --json" in text
     assert "paper book" not in text
