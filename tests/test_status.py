@@ -205,6 +205,7 @@ def test_status_json_newest_walk_no_chrome(monkeypatch, tmp_path):
         "asset": "ETH",
         "edge": 0.1,
         "hedge": "CHEAP PAIR",
+        "ticker": "KXETH15M-TEST",
     }
     path.write_text(
         json.dumps(
@@ -222,6 +223,7 @@ def test_status_json_newest_walk_no_chrome(monkeypatch, tmp_path):
     blob = json.loads(result.stdout)
     assert blob["last_walk"]["asset"] == "ETH"
     assert blob["last_walk"]["hedge"] == "CHEAP PAIR"
+    assert blob["last_walk"]["ticker"] == "KXETH15M-TEST"
     assert blob["last_walk_kind"] == "live"
     assert "NorthStar status" not in result.stdout
     assert "no saved walks yet" not in result.stdout

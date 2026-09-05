@@ -78,10 +78,20 @@ def test_book_from_last_yes_is_paper_kind():
     assert pos["lose_pnl"] == -2.0
     assert pos["from_saved_at"] == BTC_SKIP["saved_at"]
     assert pos["from_kind"] == "live"
+    assert "ticker" not in pos
     assert pos["pair_id"] is None
     assert pos["outcome"] is None
     assert pos["realized_pnl"] is None
     assert last_walk_kind(BTC_SKIP) == "live"
+
+
+def test_book_from_entry_copies_ticker_if_present():
+    entry = dict(BTC_SKIP)
+    entry["ticker"] = "KXBTC15M-TEST"
+    pos = book_from_entry(entry, side="yes")
+    assert pos["ticker"] == "KXBTC15M-TEST"
+    demo = book_from_entry(DEMO_CHEAP, side="yes")
+    assert "ticker" not in demo
 
 
 def test_book_side_no_uses_step2_math():

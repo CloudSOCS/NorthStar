@@ -270,6 +270,16 @@ BASE = [
 ]
 
 
+def test_kalshi_live_book_requires_explicit_ticker():
+    import inspect
+
+    from poly.cli import kalshi_live_book
+
+    source = inspect.getsource(kalshi_live_book)
+    assert "--ticker" in source
+    assert "--last" not in source
+
+
 def test_cli_refuse_missing_approve(monkeypatch, tmp_path):
     result, log = _invoke(BASE, monkeypatch, tmp_path)
     assert result.exit_code == 1

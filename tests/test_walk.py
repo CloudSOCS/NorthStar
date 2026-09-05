@@ -83,6 +83,7 @@ def test_demo_quote_uses_learning_md_numbers():
     assert quote.no_price == 0.40
     assert quote.model_prob == 0.50
     assert quote.edge == 0.10
+    assert quote.ticker is None
     text = format_walk(quote, spend=2.0, demo=True)
     assert DEMO_BANNER in text
     assert BANNER not in text
@@ -90,6 +91,7 @@ def test_demo_quote_uses_learning_md_numbers():
     assert "+$3.00" in text
     assert "Hedge: CHEAP PAIR" in text
     assert "too cheap" in text.lower()
+    assert "Ticker:" not in text
 
 
 def test_demo_journal_entry_marks_source():
@@ -101,11 +103,28 @@ def test_demo_journal_entry_marks_source():
     assert entry["win_pnl"] == 3.0
     assert entry["edge"] == 0.10
     assert entry["hedge"] == "CHEAP PAIR"
+    assert "ticker" not in entry
     live = journal_entry(
-        WalkQuote("ETH", "ETH", 0.40, 0.40, None, None),
+        WalkQuote("ETH", "ETH", 0.40, 0.40, None, None, ticker="KXETH15M-TEST"),
         spend=2.0,
     )
     assert "source" not in live
+    assert live["ticker"] == "KXETH15M-TEST"
+
+
+def test_format_walk_live_shows_ticker():
+    quote = WalkQuote(
+        asset="BTC",
+        question="BTC price up in next 15 mins?",
+        yes_price=0.80,
+        no_price=0.21,
+        model_prob=None,
+        edge=None,
+        ticker="KXBTC15M-TEST",
+    )
+    text = format_walk(quote, spend=2.0)
+    assert "Ticker: KXBTC15M-TEST" in text
+    assert DEMO_BANNER not in text
 
 
 def test_format_walk_expensive_pair_and_negative_edge():
@@ -272,6 +291,21 @@ def test_dump_journal_json_labels_demo_and_live():
     assert "kind" not in entries[1]
 
 
+def test_dump_journal_json_passes_ticker_if_present():
+    entries = [
+        {"saved_at": "a", "asset": "DEMO", "source": "demo", "edge": 0.1},
+        {
+            "saved_at": "b",
+            "asset": "BTC",
+            "edge": "not ready",
+            "ticker": "KXBTC15M-TEST",
+        },
+    ]
+    blob = dump_journal_json(entries, last=5)
+    assert blob["entries"][0]["ticker"] == "KXBTC15M-TEST"
+    assert "ticker" not in blob["entries"][1]
+
+
 def test_quote_from_journal_not_ready():
     entry = {
         "asset": "SOL",
@@ -286,6 +320,7 @@ def test_quote_from_journal_not_ready():
     assert spend == 2.0
     assert quote.model_prob is None
     assert quote.edge is None
+    assert quote.ticker is None
     text = format_walk(quote, spend, replay=True, saved_at="2026-08-26T12:00:00-05:00")
     assert BANNER in text
     assert DEMO_BANNER not in text
@@ -303,10 +338,12 @@ def test_quote_from_journal_rebuilds_guess_from_edge():
         "spend": 2.0,
         "edge": 0.10,
         "hedge": "CHEAP PAIR",
+        "ticker": "KXETH15M-TEST",
     }
     quote, spend = quote_from_journal_entry(entry)
     assert quote.model_prob == pytest.approx(0.50)
     assert quote.edge == pytest.approx(0.10)
+    assert quote.ticker == "KXETH15M-TEST"
     text = format_walk(
         quote, spend, replay=True, saved_at="2026-08-26T15:14:00-05:00"
     )
@@ -318,6 +355,7 @@ def test_quote_from_journal_rebuilds_guess_from_edge():
     assert "Step 1" in text
     assert "too cheap" in text.lower()
     assert "Hedge: CHEAP PAIR" in text
+    assert "Ticker: KXETH15M-TEST" in text
 
 
 def _invoke_practice(args, monkeypatch, journal_path):
@@ -357,6 +395,29 @@ def test_practice_last_json_defaults_to_newest_one(monkeypatch, tmp_path):
     assert [e["asset"] for e in blob["entries"]] == ["ETH"]
     assert "NorthStar practice replay" not in result.stdout
     assert "Step 1" not in result.stdout
+
+
+def test_practice_last_json_passes_ticker(monkeypatch, tmp_path):
+    path = tmp_path / "walk_journal.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "entries": [
+                    {
+                        "saved_at": "b",
+                        "asset": "BTC",
+                        "edge": "not ready",
+                        "ticker": "KXBTC15M-TEST",
+                    }
+                ],
+            }
+        )
+    )
+    result = _invoke_practice(["last", "--json"], monkeypatch, path)
+    assert result.exit_code == 0
+    blob = json.loads(result.stdout)
+    assert blob["entries"][0]["ticker"] == "KXBTC15M-TEST"
 
 
 def test_practice_journal_json_respects_last(monkeypatch, tmp_path):
@@ -596,6 +657,26 @@ def test_practice_walk_demo_save_writes_demo_source(monkeypatch, tmp_path):
     assert entry["yes_price"] == 0.40
     assert entry["edge"] == 0.10
     assert entry["hedge"] == "CHEAP PAIR"
+    assert "ticker" not in entry
+
+
+def test_practice_walk_live_prints_and_saves_ticker(monkeypatch, tmp_path):
+    from poly.practice.walk import load_walk_quote
+
+    monkeypatch.setattr("poly.practice.walk.time.sleep", lambda _s: None)
+    feed = _ScriptedFeed([[_btc_market()]])
+    monkeypatch.setattr(
+        "poly.cli.load_walk_quote",
+        lambda asset, settings=None: load_walk_quote(asset, feed=feed),
+    )
+    path = tmp_path / "walk_journal.json"
+    result = _invoke_practice(["walk", "--save"], monkeypatch, path)
+    assert result.exit_code == 0
+    assert "Ticker: KXBTC15M-TEST" in result.stdout
+    entry = json.loads(path.read_text())["entries"][0]
+    assert entry["ticker"] == "KXBTC15M-TEST"
+    assert entry["asset"] == "BTC"
+    assert "source" not in entry
 
 
 def _rate_err():
@@ -660,6 +741,7 @@ def test_load_walk_quote_success(monkeypatch):
     assert quote.yes_price == 0.40
     assert quote.no_price == 0.40
     assert quote.edge is None
+    assert quote.ticker == "KXBTC15M-TEST"
 
 
 def test_load_walk_quote_retries_once_then_succeeds(monkeypatch):

@@ -38,6 +38,7 @@ class WalkQuote:
     no_price: float
     model_prob: Optional[float]
     edge: Optional[float]
+    ticker: Optional[str] = None
 
 
 # LEARNING.md Steps 2–4: $2 on YES at 40¢, guess 50¢, NO 40¢ cheap pair.
@@ -128,9 +129,11 @@ def format_walk(
         lines.append(spend_note)
         lines.append("")
 
+    lines.append(f"{quote.asset} — {quote.question}")
+    if quote.ticker:
+        lines.append(f"Ticker: {quote.ticker}")
     lines.extend(
         [
-            f"{quote.asset} — {quote.question}",
             "",
             "Step 1 — What you're buying",
             "A YES or NO ticket. Winner pays $1. Loser pays $0.",
@@ -236,6 +239,8 @@ def journal_entry(
     }
     if source:
         entry["source"] = source
+    if quote.ticker:
+        entry["ticker"] = quote.ticker
     return entry
 
 
@@ -258,6 +263,7 @@ def quote_from_journal_entry(entry: Dict[str, Any]) -> Tuple[WalkQuote, float]:
         no_price=no,
         model_prob=model_prob,
         edge=edge,
+        ticker=str(entry["ticker"]) if entry.get("ticker") else None,
     )
     return quote, spend
 
@@ -380,6 +386,7 @@ def _quote_from_feed(feed: Any, asset_u: str, settings: Settings) -> Optional[Wa
         )
         model_prob = signal.model_prob
         edge = model_prob - yes_price
+    ticker = str(getattr(market, "ticker", "") or "").strip() or None
     return WalkQuote(
         asset=market.asset,
         question=market.question,
@@ -387,6 +394,7 @@ def _quote_from_feed(feed: Any, asset_u: str, settings: Settings) -> Optional[Wa
         no_price=no_price,
         model_prob=model_prob,
         edge=edge,
+        ticker=ticker,
     )
 
 

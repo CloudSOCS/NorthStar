@@ -89,7 +89,7 @@ def _leg(
         tickets = tickets_bought(spend, price)
         win = win_pnl(spend, price)
         lose = lose_pnl(spend, price)
-    return {
+    pos = {
         "id": _new_id(),
         "booked_at": booked_at or _now(),
         "status": "open",
@@ -109,6 +109,10 @@ def _leg(
         "settled_at": None,
         "realized_pnl": None,
     }
+    ticker = str(entry.get("ticker") or "").strip()
+    if ticker:
+        pos["ticker"] = ticker
+    return pos
 
 
 def _pair_cost(entry: Dict[str, Any]) -> float:
