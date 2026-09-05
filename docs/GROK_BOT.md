@@ -44,7 +44,7 @@ Existing flags on those same commands are fine (`--asset`, `--spend`, `--n`, `--
 
 ## 5. Forbidden
 
-Do not run any other CLI command. Do not run `kalshi-live`. Do not run `practice paper book` or `practice paper settle`. The helper must not live-trade and must not book or settle paper fills. Do not buy, close, reset, or run the practice account. Do not edit `agents/` or `execution/live.py`. Do not un-stub anything. Do not click Yes/No or enter an amount for the human.
+Do not run any other CLI command. Do not run `practice buy`, `practice close`, `practice run`, `practice reset`, `practice paper book`, `practice paper settle`, or `kalshi-live`. `practice buy` / `practice run` is the old virtual wallet, not paper fills from a walk. The helper may run `practice paper list`, `practice paper list --json`, and `practice paper postmortem` (including `--json`). Two notebooks exist — the walk journal and paper positions; do not mix them. The helper must not live-trade and must not book or settle paper fills. Do not edit `agents/` or `execution/live.py`. Do not un-stub anything. Do not click Yes/No or enter an amount for the human.
 
 ## 6. How to report back
 

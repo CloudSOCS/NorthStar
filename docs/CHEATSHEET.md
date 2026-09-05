@@ -106,6 +106,7 @@ uv run northstar practice paper list --json
 uv run northstar practice paper postmortem
 uv run northstar practice paper postmortem --json
 ```
+Helper may run paper list, list --json, and postmortem. Helper may not run: practice buy, close, run, reset, paper book, paper settle, kalshi-live. `practice buy` / `run` is the old virtual wallet, not paper fills from a walk. Two notebooks exist — the walk journal and paper positions; do not mix them.
 
 ---
 Reminder: the bot only SUGGESTS. You click Yes/No and enter the amount yourself.
