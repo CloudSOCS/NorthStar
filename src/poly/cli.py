@@ -19,6 +19,15 @@ from poly.execution.dry import run_dry_loop, run_dry_snapshot
 from poly.execution.kalshi_dry import run_kalshi_dry_loop, run_kalshi_dry_snapshot
 from poly.execution.kalshi_live import LiveRequest, LIVE_REFUSE_FOOTER, attempt_live_book
 from poly.execution.kalshi_signer import signed_create_order
+from poly.execution.live_halt import (
+    RESUME_FLAG_REFUSE,
+    clear_halt,
+    format_halt_status,
+    format_manual_halt_ok,
+    format_resume_ok,
+    load_halt,
+    write_manual_halt,
+)
 from poly.strategies.cross_arb import find_all_arbs, find_arb_for_asset
 from poly.execution.paper import (
     pick_explanation_window,
@@ -543,6 +552,40 @@ def kalshi_live_book(
         if LIVE_REFUSE_FOOTER not in result.message:
             console.print(f"[dim]{LIVE_REFUSE_FOOTER}[/dim]")
         raise typer.Exit(1)
+
+
+@kalshi_live_app.command("halt-status")
+def kalshi_live_halt_status() -> None:
+    """Show the live-loss halt. Not on the helper allowlist."""
+    try:
+        blob = load_halt()
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        console.print(f"[red]Could not read live halt: {exc}[/red]")
+        raise typer.Exit(1)
+    console.print(format_halt_status(blob))
+
+
+@kalshi_live_app.command("halt")
+def kalshi_live_halt() -> None:
+    """Manual live-loss halt. Not on the helper allowlist."""
+    write_manual_halt()
+    console.print(format_manual_halt_ok())
+
+
+@kalshi_live_app.command("resume")
+def kalshi_live_resume(
+    clear_loss_halt: bool = typer.Option(
+        False,
+        "--i-clear-loss-halt",
+        help="Required. Human only. Lifts the live-loss halt.",
+    ),
+) -> None:
+    """Lift the live-loss halt. Helper must not run this."""
+    if not clear_loss_halt:
+        console.print(RESUME_FLAG_REFUSE)
+        raise typer.Exit(1)
+    clear_halt()
+    console.print(format_resume_ok())
 
 
 practice_app = typer.Typer(help="Virtual trading and teaching walk (no live orders)")

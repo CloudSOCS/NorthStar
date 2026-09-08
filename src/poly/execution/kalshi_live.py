@@ -13,6 +13,7 @@ import uuid
 import httpx
 
 from poly.config import ExecutionMode, Settings
+from poly.execution.live_halt import BOOK_HALT_LINE, HALT_READ_REFUSE, is_halted
 from poly.practice.walk import lose_pnl, tickets_bought, win_pnl
 
 LIVE_SCHEMA = 1
@@ -163,6 +164,7 @@ def attempt_live_book(
     *,
     settings: Settings,
     log_path: Optional[Path] = None,
+    halt_path: Optional[Path] = None,
     sender: Optional[Sender] = None,
 ) -> LiveResult:
     """Fail-closed one-shot. Does not write the graph. Default sender does not sign."""
@@ -181,6 +183,13 @@ def attempt_live_book(
         approve_not_ready=req.approve_not_ready,
         both=req.both,
     )
+
+    try:
+        halted = is_halted(halt_path)
+    except (OSError, json.JSONDecodeError, ValueError):
+        return _refuse(req, reason=HALT_READ_REFUSE, log_path=path)
+    if halted:
+        return _refuse(req, reason=BOOK_HALT_LINE, log_path=path)
 
     if not req.approve_live:
         return _refuse(

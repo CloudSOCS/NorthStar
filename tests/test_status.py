@@ -39,6 +39,7 @@ def test_product_status_empty_last_walk():
     ]
     assert not any("buy" in cmd or "close" in cmd or "--live" in cmd for cmd in blob["continue"])
     assert not any("kalshi-live" in cmd for cmd in blob["continue"])
+    assert not any("halt" in cmd or "resume" in cmd for cmd in blob["continue"])
     assert not any("paper book" in cmd or "paper settle" in cmd for cmd in blob["continue"])
     assert blob["last_paper"] is None
     assert blob["last_paper_kind"] is None

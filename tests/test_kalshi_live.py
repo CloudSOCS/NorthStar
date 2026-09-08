@@ -309,6 +309,7 @@ def _invoke(args, monkeypatch, tmp_path, *, mode="live", key="key-id", pem=True)
 
     log = tmp_path / "live_attempts.json"
     monkeypatch.setenv("NORTHSTAR_LIVE_ATTEMPTS", str(log))
+    monkeypatch.setenv("NORTHSTAR_LIVE_HALT", str(tmp_path / "live_halt.json"))
     monkeypatch.setenv("POLY_MODE", mode)
     monkeypatch.setenv("KALSHI_API_KEY", key or "")
     if pem:
