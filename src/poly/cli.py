@@ -18,6 +18,7 @@ from poly.config import ExecutionMode
 from poly.execution.dry import run_dry_loop, run_dry_snapshot
 from poly.execution.kalshi_dry import run_kalshi_dry_loop, run_kalshi_dry_snapshot
 from poly.execution.kalshi_live import LiveRequest, LIVE_REFUSE_FOOTER, attempt_live_book
+from poly.execution.kalshi_signer import signed_create_order
 from poly.strategies.cross_arb import find_all_arbs, find_arb_for_asset
 from poly.execution.paper import (
     pick_explanation_window,
@@ -513,7 +514,7 @@ def kalshi_live_book(
         help="Required if edge is not ready. Does not invent a guess.",
     ),
     both: bool = typer.Option(
-        False, "--both", help="Both sides only if the pair costs under $1"
+        False, "--both", help="Refused. One POST only."
     ),
 ) -> None:
     """One-shot live book. Fail-closed. Helper must not run this."""
@@ -521,6 +522,7 @@ def kalshi_live_book(
         raw_edge: object = float(edge)
     except ValueError:
         raw_edge = edge
+    settings = Settings()
     result = attempt_live_book(
         LiveRequest(
             ticker=ticker,
@@ -533,8 +535,8 @@ def kalshi_live_book(
             approve_not_ready=approve_not_ready,
             both=both,
         ),
-        settings=Settings(),
-        sender=None,
+        settings=settings,
+        sender=lambda req: signed_create_order(req, settings=settings),
     )
     console.print(result.message)
     if not result.sent:

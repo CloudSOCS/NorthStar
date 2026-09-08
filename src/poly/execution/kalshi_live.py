@@ -13,7 +13,7 @@ import uuid
 import httpx
 
 from poly.config import ExecutionMode, Settings
-from poly.practice.walk import lose_pnl, pair_cost, tickets_bought, win_pnl
+from poly.practice.walk import lose_pnl, tickets_bought, win_pnl
 
 LIVE_SCHEMA = 1
 LIVE_ATTEMPT_KIND = "live_attempt"
@@ -206,10 +206,10 @@ def attempt_live_book(
             reason=f"Spend must be from $0.01 to ${MAX_LIVE_SPEND:.0f}. No silent clamp. No order was sent.",
             log_path=path,
         )
-    if req.both and pair_cost(req.yes_price, req.no_price) >= 1.0:
+    if req.both:
         return _refuse(
             req,
-            reason="Will not book both sides. Pair is not a cheap hedge (need pair cost under $1).",
+            reason="Will not send both sides. One POST only. No order was sent.",
             log_path=path,
         )
     if _edge_not_ready(req.edge) and not req.approve_not_ready:
@@ -228,6 +228,8 @@ def attempt_live_book(
 
     try:
         reply = sender(req)
+    except ValueError as exc:
+        return _refuse(req, reason=str(exc), log_path=path, extra_lines=["", step2])
     except httpx.HTTPStatusError as exc:
         response = exc.response
         if response is not None and response.status_code == 429:
@@ -302,6 +304,9 @@ def attempt_live_book(
         "ticket_price": round(_ticket_price(req), 4),
         "reason": "venue accepted",
         "order_id": reply.get("order_id"),
+        "fill_count": reply.get("fill_count"),
+        "remaining_count": reply.get("remaining_count"),
+        "client_order_id": reply.get("client_order_id"),
     }
     _append_attempt(path, row)
     return LiveResult(

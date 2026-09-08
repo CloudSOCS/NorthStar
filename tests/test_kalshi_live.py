@@ -117,7 +117,29 @@ def test_refuse_both_when_pair_not_cheap(tmp_path):
         sender=lambda *_a, **_k: pytest.fail("must not send"),
     )
     assert result.status == "refused_local"
-    assert "both sides" in result.reason.lower() or "hedge" in result.reason.lower()
+    assert "both sides" in result.reason.lower() or "one post" in result.reason.lower()
+
+
+def test_refuse_both_even_when_pair_is_cheap(tmp_path):
+    pem = _pem(tmp_path)
+    log = tmp_path / "live_attempts.json"
+    result = attempt_live_book(
+        _req(
+            both=True,
+            yes_price=0.40,
+            no_price=0.40,
+            approve_not_ready=True,
+        ),
+        settings=_settings(pem=pem),
+        log_path=log,
+        sender=lambda *_a, **_k: pytest.fail("must not send"),
+    )
+    assert result.status == "refused_local"
+    assert result.sent is False
+    assert "one post" in result.reason.lower()
+    blob = json.loads(log.read_text())
+    assert blob["attempts"][0]["status"] == "refused_local"
+    assert blob["attempts"][0]["kind"] == LIVE_ATTEMPT_KIND
 
 
 def test_refuse_edge_not_ready_without_flag(tmp_path):
@@ -160,6 +182,49 @@ def test_429_logs_rate_limited_and_does_not_retry(tmp_path):
     blob = json.loads(log.read_text())
     assert blob["attempts"][0]["status"] == "rate_limited"
     assert blob["attempts"][0]["kind"] != "live"
+    assert blob["attempts"][0]["kind"] == LIVE_ATTEMPT_KIND
+
+
+def test_sent_row_keeps_fill_count_zero_as_live(tmp_path):
+    pem = _pem(tmp_path)
+    log = tmp_path / "live_attempts.json"
+    result = attempt_live_book(
+        _req(edge=0.10),
+        settings=_settings(pem=pem),
+        log_path=log,
+        sender=lambda req: {
+            "accepted": True,
+            "order_id": "ord-1",
+            "fill_count": "0.00",
+            "remaining_count": "2.50",
+            "client_order_id": "client-1",
+        },
+    )
+    assert result.status == "sent"
+    assert result.sent is True
+    row = json.loads(log.read_text())["attempts"][0]
+    assert row["status"] == "sent"
+    assert row["kind"] == "live"
+    assert row["fill_count"] == "0.00"
+    assert row["remaining_count"] == "2.50"
+    assert row["client_order_id"] == "client-1"
+    assert row["order_id"] == "ord-1"
+
+
+def test_bad_pem_valueerror_is_refused_local(tmp_path):
+    pem = _pem(tmp_path)
+    log = tmp_path / "live_attempts.json"
+    result = attempt_live_book(
+        _req(edge=0.10),
+        settings=_settings(pem=pem),
+        log_path=log,
+        sender=lambda _req: (_ for _ in ()).throw(
+            ValueError("Could not load RSA private key. No order was sent.")
+        ),
+    )
+    assert result.status == "refused_local"
+    assert result.sent is False
+    assert json.loads(log.read_text())["attempts"][0]["kind"] == LIVE_ATTEMPT_KIND
 
 
 def test_sent_only_when_sender_accepts(tmp_path):
@@ -280,6 +345,27 @@ def test_kalshi_live_book_requires_explicit_ticker():
     assert "--last" not in source
 
 
+def test_cli_book_wires_signed_create_order():
+    import inspect
+
+    from poly.cli import kalshi_live_book
+
+    source = inspect.getsource(kalshi_live_book)
+    assert "signed_create_order" in source
+    assert "sender=None" not in source
+
+
+def test_kalshi_client_has_no_rsa_headers():
+    import inspect
+
+    from poly.clients import kalshi
+
+    source = inspect.getsource(kalshi)
+    assert "KALSHI-ACCESS-SIGNATURE" not in source
+    assert "KALSHI-ACCESS-KEY" not in source
+    assert "signed_create_order" not in source
+
+
 def test_cli_refuse_missing_approve(monkeypatch, tmp_path):
     result, log = _invoke(BASE, monkeypatch, tmp_path)
     assert result.exit_code == 1
@@ -302,14 +388,14 @@ def test_cli_refuse_missing_keys(monkeypatch, tmp_path):
     )
 
 
-def test_cli_no_signer_no_send(monkeypatch, tmp_path):
+def test_cli_garbage_pem_refuses_without_send(monkeypatch, tmp_path):
     result, log = _invoke(
         [*BASE, "--edge", "0.10", "--i-approve-live"],
         monkeypatch,
         tmp_path,
     )
     assert result.exit_code == 1
-    assert "signer" in result.stdout.lower()
+    assert "private key" in result.stdout.lower() or "rsa" in result.stdout.lower()
     assert LIVE_REFUSE_FOOTER in result.stdout
     row = json.loads(log.read_text())["attempts"][0]
     assert row["status"] == "refused_local"
