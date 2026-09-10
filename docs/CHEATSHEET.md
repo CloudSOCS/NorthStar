@@ -89,6 +89,7 @@ Reprints the newest walk(s) in the same Step 1–4 voice. No market fetch. No or
 ## 9. Grok worker allowlist
 Charter: `docs/GROK_BOT.md`. First-run on the bot computer: `docs/GROK_BOT_SETUP.md`.
 `kalshi-live` is Mac Mini only: human APPROVE per order. Not on the helper allowlist.
+Shared Grok computer is not isolation. Halt file and Kalshi PEM live only on the Mac Mini (`~/.poly/live_halt.json`, `KALSHI_PRIVATE_KEY_PATH`). Helper must not run `kalshi-live`, halt, or resume. Weekly receipt = `status --json` + paper postmortem; human spot-checks one artifact.
 `--demo` is a teaching snapshot, not a live Kalshi market.
 ```bash
 uv run northstar status

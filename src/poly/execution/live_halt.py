@@ -103,6 +103,28 @@ def clear_halt(path: Optional[Path] = None) -> Dict[str, Any]:
     return blob
 
 
+STATUS_HALT_UNKNOWN = "unknown"
+STATUS_HALT_UNKNOWN_LINE = "Live halt: unknown (Mini only)"
+
+
+def status_halt_view(path: Optional[Path] = None) -> str:
+    """on/off if this machine has a readable halt file. Missing → unknown. Never writes."""
+    path = path or default_halt_path()
+    if not path.exists():
+        return STATUS_HALT_UNKNOWN
+    try:
+        blob = _read_halt(path)
+    except (OSError, json.JSONDecodeError, ValueError, TypeError):
+        return STATUS_HALT_UNKNOWN
+    return "on" if blob.get("halted") else "off"
+
+
+def format_status_halt_line(state: str) -> str:
+    if state == STATUS_HALT_UNKNOWN:
+        return STATUS_HALT_UNKNOWN_LINE
+    return f"Live halt: {state}"
+
+
 def format_halt_status(blob: Dict[str, Any]) -> str:
     on = bool(blob.get("halted"))
     lines = [f"Live halt: {'on' if on else 'off'}"]

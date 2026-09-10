@@ -10,6 +10,11 @@ Read the locked fences. Walk a real 15-minute market through Steps 1–4 **witho
 
 Never place a live order. Never write the Hypothesis Graph. Never un-stub the generator. Never spend real money. `--save` writes a local lesson notebook only. That is not a trade.
 
+- Shared Grok computer is not isolation
+- Halt file and Kalshi PEM live only on the Mac Mini (`~/.poly/live_halt.json`, `KALSHI_PRIVATE_KEY_PATH`)
+- Helper must not run `kalshi-live`, halt, or resume
+- Weekly receipt = `status --json` + paper postmortem; human spot-checks one artifact
+
 ## 3. First command
 
 Always start here, from the repo root:
@@ -44,7 +49,7 @@ Existing flags on those same commands are fine (`--asset`, `--spend`, `--n`, `--
 
 ## 5. Forbidden
 
-Do not run any other CLI command. Do not run `practice buy`, `practice close`, `practice run`, `practice reset`, `practice paper book`, `practice paper settle`, or `kalshi-live`. `practice buy` / `practice run` is the old virtual wallet, not paper fills from a walk. The helper may run `practice paper list`, `practice paper list --json`, and `practice paper postmortem` (including `--json`). Two notebooks exist — the walk journal and paper positions; do not mix them. The helper must not live-trade and must not book or settle paper fills. Do not edit `agents/` or `execution/live.py`. Do not un-stub anything. Do not click Yes/No or enter an amount for the human.
+Do not run any other CLI command. Do not run `practice buy`, `practice close`, `practice run`, `practice reset`, `practice paper book`, `practice paper settle`, or `kalshi-live` (including halt and resume). `practice buy` / `practice run` is the old virtual wallet, not paper fills from a walk. The helper may run `practice paper list`, `practice paper list --json`, and `practice paper postmortem` (including `--json`). Two notebooks exist — the walk journal and paper positions; do not mix them. The helper must not live-trade and must not book or settle paper fills. Do not edit `agents/` or `execution/live.py`. Do not un-stub anything. Do not click Yes/No or enter an amount for the human.
 
 ## 6. How to report back
 

@@ -25,7 +25,9 @@ from poly.execution.live_halt import (
     format_halt_status,
     format_manual_halt_ok,
     format_resume_ok,
+    format_status_halt_line,
     load_halt,
+    status_halt_view,
     write_manual_halt,
 )
 from poly.strategies.cross_arb import find_all_arbs, find_arb_for_asset
@@ -1134,6 +1136,8 @@ def status(
     _paper_path, paper_blob = _read_paper_file(as_json=as_json)
     entries = blob.get("entries") or []
     payload = product_status_payload(entries, paper_blob.get("positions") or [])
+    halt_state = status_halt_view()
+    payload["live_halt"] = halt_state
     if as_json:
         print(json.dumps(payload, indent=2))
         return
@@ -1146,6 +1150,7 @@ def status(
     table.add_row("Generator", str(fences["generator"]))
     table.add_row("Graph command", str(fences["graph_command"]))
     table.add_row("Helper", HELPER)
+    table.add_row("Live halt", format_status_halt_line(halt_state).strip())
     table.add_row("Last lesson", format_last_walk_kind(payload["last_walk"]))
     table.add_row("Last saved lesson", format_last_walk_line(payload["last_walk"]))
     table.add_row("Last paper fill", format_last_paper_line(payload["last_paper"]))

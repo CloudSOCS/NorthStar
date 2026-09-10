@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from poly.practice.orientation import (
     CONTINUE,
@@ -195,6 +196,7 @@ def test_status_json_empty_missing_file(monkeypatch, tmp_path):
     assert blob["fences"]["live_orders"] == "approve-per-order"
     assert blob["helper"] == "must not run kalshi-live"
     assert blob["fences"]["source"] == "static"
+    assert blob["live_halt"] == "unknown"
     assert "Places real orders" not in result.stdout
     assert not path.exists()
 
@@ -237,6 +239,9 @@ def test_status_human_empty_and_continue(monkeypatch, tmp_path):
     text = result.stdout
     assert "approve-per-order" in text
     assert "must not run kalshi-live" in text
+    assert "Live halt: unknown (Mini only)" in text
+    assert "Live halt: on" not in text
+    assert "Live halt: off" not in text
     assert "kalshi-live book" not in text
     assert "stubbed" in text
     assert "stop" in text.lower()
@@ -394,3 +399,74 @@ def test_status_json_corrupt_journal_exits_nonzero(monkeypatch, tmp_path):
     assert result.exit_code == 1
     assert result.stdout.strip() == ""
     assert "Could not read journal" in (result.stderr or "")
+
+
+def test_status_readable_halt_file_shows_on_or_off(monkeypatch, tmp_path):
+    journal = tmp_path / "missing.json"
+    halt = tmp_path / "live_halt.json"
+    monkeypatch.setenv("NORTHSTAR_LIVE_HALT", str(halt))
+    halt.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "halted": True,
+                "reason": "manual",
+                "realized_live_pnl": None,
+                "halted_at": "2026-09-10T13:00:00-05:00",
+            }
+        )
+        + "\n"
+    )
+    dumped = _invoke_status(["--json"], monkeypatch, journal)
+    assert dumped.exit_code == 0
+    blob = json.loads(dumped.stdout)
+    assert blob["live_halt"] == "on"
+    human = _invoke_status([], monkeypatch, journal)
+    assert human.exit_code == 0
+    assert "Live halt: on" in human.stdout
+    assert "unknown (Mini only)" not in human.stdout
+
+    halt.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "halted": False,
+                "reason": "cleared",
+                "realized_live_pnl": None,
+                "halted_at": None,
+            }
+        )
+        + "\n"
+    )
+    dumped = _invoke_status(["--json"], monkeypatch, journal)
+    assert dumped.exit_code == 0
+    assert json.loads(dumped.stdout)["live_halt"] == "off"
+    human = _invoke_status([], monkeypatch, journal)
+    assert human.exit_code == 0
+    assert "Live halt: off" in human.stdout
+    assert "unknown (Mini only)" not in human.stdout
+
+
+def test_grok_bot_charter_isolation_and_weekly_receipt():
+    charter = Path("docs/GROK_BOT.md").read_text()
+    assert "Shared Grok computer is not isolation" in charter
+    assert "~/.poly/live_halt.json" in charter
+    assert "KALSHI_PRIVATE_KEY_PATH" in charter
+    assert "Helper must not run `kalshi-live`, halt, or resume" in charter
+    assert "Weekly receipt = `status --json` + paper postmortem" in charter
+    assert "human spot-checks one artifact" in charter
+    block = charter.split("## 4. Allowed commands only", 1)[1].split("## 5. Forbidden", 1)[0]
+    assert "kalshi-live" not in block
+    assert "halt" not in block
+    assert "resume" not in block
+
+
+def test_status_does_not_call_live_book_or_signer():
+    status_src = Path("src/poly/cli.py").read_text().split("def status(", 1)[1]
+    status_src = status_src.split('if __name__ == "__main__":', 1)[0]
+    assert "signed_create_order" not in status_src
+    assert "attempt_live_book" not in status_src
+    assert "write_manual_halt" not in status_src
+    assert "clear_halt" not in status_src
+    assert "run_live_loop" not in status_src
+
