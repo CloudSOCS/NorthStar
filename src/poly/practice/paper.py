@@ -27,9 +27,9 @@ STUDENT_MIN_PRICE = 0.20
 PAPER_BANNER = "This is a paper fill — no live order will be placed"
 POSTMORTEM_FOOTER = "This is a paper post-mortem — no live order, graph not written"
 POSTMORTEM_BANNER = POSTMORTEM_FOOTER
-BOTH_REFUSE = (
-    "Will not book both sides. Pair is not a cheap hedge (need pair cost under $1)."
-)
+HEDGE_SKIP_REFUSE = "Hedge: SKIP — pair over $1"
+HEDGE_LOCK = "locked paper hedge — not live"
+BOTH_REFUSE = HEDGE_SKIP_REFUSE
 SAME_MARKET_REFUSE = (
     "Already have a paper fill on this market (id {id}). Walk a new ticker."
 )
@@ -147,13 +147,6 @@ def _leg(
     return pos
 
 
-def _pair_cost(entry: Dict[str, Any]) -> float:
-    raw = entry.get("pair_cost")
-    if raw is not None:
-        return float(raw)
-    return pair_cost(float(entry.get("yes_price") or 0.0), float(entry.get("no_price") or 0.0))
-
-
 def find_same_market(
     positions: List[Dict[str, Any]], ticker: Optional[str]
 ) -> Optional[Dict[str, Any]]:
@@ -254,8 +247,10 @@ def book_from_entry(
 ) -> Union[Dict[str, Any], Tuple[Dict[str, Any], Dict[str, Any]]]:
     """Build paper position(s) from a saved walk. Does not fetch a market."""
     if both:
-        if _pair_cost(entry) >= 1.0:
-            raise ValueError(BOTH_REFUSE)
+        yes = float(entry.get("yes_price") or 0.0)
+        no = float(entry.get("no_price") or 0.0)
+        if pair_cost(yes, no) >= 1.0:
+            raise ValueError(HEDGE_SKIP_REFUSE)
         pair_id = _new_id()
         when = _now()
         return _leg(entry, "yes", pair_id=pair_id, booked_at=when), _leg(
@@ -472,6 +467,9 @@ def format_paper_book(positions: List[Dict[str, Any]]) -> str:
                 "",
             ]
         )
+    if len(positions) >= 2:
+        lines.append(HEDGE_LOCK)
+        lines.append("")
     lines.append(PAPER_FOOTER)
     return "\n".join(lines).rstrip() + "\n"
 

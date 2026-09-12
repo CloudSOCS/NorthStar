@@ -6,12 +6,15 @@ from poly.practice.paper import (
     PAPER_FOOTER,
     PAPER_SCHEMA,
     POSTMORTEM_FOOTER,
+    HEDGE_LOCK,
+    HEDGE_SKIP_REFUSE,
     WINDOW_OVER,
     WINDOW_UNKNOWN,
     book_from_entry,
     default_paper_path,
     dump_paper_json,
     dump_postmortem_json,
+    format_paper_book,
     format_paper_list_net,
     format_paper_list_table,
     list_entry,
@@ -117,9 +120,22 @@ def test_book_both_refused_when_pair_not_cheap():
     try:
         book_from_entry(BTC_SKIP, both=True)
     except ValueError as exc:
-        assert "both sides" in str(exc).lower() or "hedge" in str(exc).lower()
+        assert str(exc) == HEDGE_SKIP_REFUSE
     else:
         raise AssertionError("expected refuse")
+    skip = {
+        "asset": "BTC",
+        "yes_price": 0.60,
+        "no_price": 0.55,
+        "spend": 2.0,
+        "source": "demo",
+    }
+    try:
+        book_from_entry(skip, both=True)
+    except ValueError as exc:
+        assert str(exc) == "Hedge: SKIP — pair over $1"
+    else:
+        raise AssertionError("expected refuse 60¢+55¢")
 
 
 def test_book_both_cheap_pair_two_paper_legs():
@@ -132,7 +148,30 @@ def test_book_both_cheap_pair_two_paper_legs():
     assert yes["pair_id"]
     assert yes["tickets"] == 5.0
     assert no["tickets"] == 5.0
+    assert yes["spend"] == 2.0
+    assert no["spend"] == 2.0
     assert yes["from_kind"] == "demo"
+
+
+def test_book_both_40_plus_40_accepts():
+    entry = {
+        "asset": "ETH",
+        "question": "ETH price up in next 15 mins?",
+        "yes_price": 0.40,
+        "no_price": 0.40,
+        "spend": 2.0,
+        "source": "demo",
+    }
+    yes, no = book_from_entry(entry, both=True)
+    assert yes["ticket_price"] == 0.40
+    assert no["ticket_price"] == 0.40
+    assert yes["tickets"] == 5.0
+    assert no["tickets"] == 5.0
+    text = format_paper_book([yes, no])
+    assert yes["id"] in text
+    assert no["id"] in text
+    assert HEDGE_LOCK in text
+    assert "locked paper hedge — not live" in text
 
 
 def test_settle_yes_win_and_no_lose_step2():
@@ -469,6 +508,30 @@ def test_practice_paper_book_expired_window_writes_nothing(monkeypatch, tmp_path
     assert not paper.exists()
 
 
+def test_practice_paper_book_both_expired_writes_nothing(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    entry = {
+        "saved_at": "2026-09-10T15:14:00-04:00",
+        "asset": "ETH",
+        "question": "ETH price up in next 15 mins?",
+        "ticker": PAST_TICKER.replace("BTC", "ETH"),
+        "close_time": "2026-09-10T15:30:00-04:00",
+        "yes_price": 0.40,
+        "no_price": 0.40,
+        "spend": 2.0,
+        "edge": 0.10,
+        "hedge": "CHEAP PAIR",
+        "pair_cost": 0.80,
+    }
+    _write_journal(journal, [entry])
+    monkeypatch.setattr("poly.cli.peek_market_status", lambda *_a, **_k: None)
+    result = _invoke_paper(["book", "--both"], monkeypatch, journal, paper)
+    assert result.exit_code == 1
+    assert WINDOW_OVER in (result.stdout or "")
+    assert not paper.exists()
+
+
 def test_practice_paper_book_unknown_window_writes_nothing(monkeypatch, tmp_path):
     journal = tmp_path / "walk_journal.json"
     paper = tmp_path / "paper_positions.json"
@@ -495,16 +558,35 @@ def test_practice_paper_book_empty_journal(monkeypatch, tmp_path):
 def test_practice_paper_book_both_refused_on_skip(monkeypatch, tmp_path):
     journal = tmp_path / "walk_journal.json"
     paper = tmp_path / "paper_positions.json"
-    _write_journal(journal, [BTC_SKIP])
+    skip = {
+        "saved_at": "2026-09-12T14:00:00-05:00",
+        "asset": "BTC",
+        "question": "BTC price up in next 15 mins?",
+        "yes_price": 0.60,
+        "no_price": 0.55,
+        "spend": 2.0,
+        "tickets": 3.3333,
+        "win_pnl": 1.3333,
+        "lose_pnl": -2.0,
+        "edge": "not ready",
+        "hedge": "SKIP",
+        "pair_cost": 1.15,
+        "source": "demo",
+    }
+    _write_journal(journal, [skip])
     result = _invoke_paper(["book", "--both"], monkeypatch, journal, paper)
     assert result.exit_code == 1
+    assert HEDGE_SKIP_REFUSE in (result.stdout or "")
+    assert PAPER_FOOTER in (result.stdout or "")
     assert not paper.exists() or json.loads(paper.read_text())["positions"] == []
 
 
 def test_practice_paper_book_both_cheap_pair(monkeypatch, tmp_path):
     journal = tmp_path / "walk_journal.json"
     paper = tmp_path / "paper_positions.json"
-    _write_journal(journal, [DEMO_CHEAP])
+    cheap = dict(DEMO_CHEAP)
+    cheap["ticker"] = "KXETH15M-26DEC151530-30"
+    _write_journal(journal, [cheap])
     result = _invoke_paper(["book", "--both"], monkeypatch, journal, paper)
     assert result.exit_code == 0
     blob = json.loads(paper.read_text())
@@ -512,6 +594,23 @@ def test_practice_paper_book_both_cheap_pair(monkeypatch, tmp_path):
     assert {p["side"] for p in blob["positions"]} == {"yes", "no"}
     assert blob["positions"][0]["pair_id"] == blob["positions"][1]["pair_id"]
     assert all(p["kind"] == "paper" for p in blob["positions"])
+    assert all(p["spend"] == 2.0 for p in blob["positions"])
+    assert all(p["ticker"] == "KXETH15M-26DEC151530-30" for p in blob["positions"])
+    assert HEDGE_LOCK in result.stdout
+    ids = {p["id"] for p in blob["positions"]}
+    for pid in ids:
+        assert pid in result.stdout
+    listed = _invoke_paper(["list"], monkeypatch, journal, paper)
+    assert listed.exit_code == 0
+    for pid in ids:
+        assert pid in listed.stdout
+    again = _invoke_paper(["book", "--both"], monkeypatch, journal, paper)
+    assert again.exit_code == 1
+    assert "Already have a paper fill on this market" in (again.stdout or "")
+    assert len(json.loads(paper.read_text())["positions"]) == 2
+    yes_only = _invoke_paper(["book", "--side", "yes"], monkeypatch, journal, paper)
+    assert yes_only.exit_code == 1
+    assert len(json.loads(paper.read_text())["positions"]) == 2
 
 
 def test_practice_paper_list_json_and_settle(monkeypatch, tmp_path):

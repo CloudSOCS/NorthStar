@@ -799,7 +799,7 @@ def practice_paper_book(
     ),
     side: str = typer.Option("yes", "--side", help="yes or no (ignored with --both)"),
     both: bool = typer.Option(
-        False, "--both", help="Book both sides only if the pair costs under $1"
+        False, "--both", help="Book YES+NO if pair < $1. Same spend each. Not live."
     ),
 ) -> None:
     """Book a paper fill from a saved walk. Not a live order."""

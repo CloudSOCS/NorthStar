@@ -77,6 +77,7 @@ northstar practice journal --json
 Shows recent saved walks (time, kind, asset, YES/NO, spend, edge, hedge). Read-only.
 `--json` prints the same snapshots as JSON (newest first), each with `"kind": "demo"` or `"kind": "live"`. That field is print-time only; the notebook file is not rewritten. No order.
 Read paper fills (id, market, side, price, dollars in, tickets, status, outcome, P&L) with `northstar practice paper list`. That is not the walk journal.
+Paper hedge (human only, not on the helper allowlist): `northstar practice paper book --both` books YES and NO on the last walk when YES+NO < $1. Same spend on each side (walk spend, default $2, max $5). One `--both` call may write two rows on the same ticker. A third row or a second YES is refused. Settle stays one id: settle YES with the real outcome; settle NO with the opposite (BTC went up → YES `--outcome yes`, NO `--outcome no`). No `settle --both`.
 
 ## 8. Replay the last saved lesson
 ```bash
