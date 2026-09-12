@@ -21,6 +21,7 @@ from poly.practice.walk import (
 PAPER_SCHEMA = 1
 PAPER_FOOTER = "This is paper only — no live order was placed."
 PAPER_LIST_EMPTY = "No paper fills yet. Run practice walk then paper book."
+STUDENT_MIN_PRICE = 0.20
 PAPER_BANNER = "This is a paper fill — no live order will be placed"
 POSTMORTEM_FOOTER = "This is a paper post-mortem — no live order, graph not written"
 POSTMORTEM_BANNER = POSTMORTEM_FOOTER
@@ -247,6 +248,20 @@ def format_paper_list_outcome(pos: Dict[str, Any]) -> str:
     return str(pos.get("outcome") or "").upper()
 
 
+def _stored_ticket_price(pos: Dict[str, Any]) -> Optional[float]:
+    raw = pos.get("ticket_price")
+    if raw is None or raw == "":
+        return None
+    return float(raw)
+
+
+def format_paper_list_tag(pos: Dict[str, Any]) -> str:
+    price = _stored_ticket_price(pos)
+    if price is None:
+        return ""
+    return "cheap" if price < STUDENT_MIN_PRICE else ""
+
+
 _LIST_HEADERS = (
     "ID",
     "Market",
@@ -257,12 +272,15 @@ _LIST_HEADERS = (
     "Status",
     "Outcome",
     "P&L",
+    "Tag",
 )
 _LIST_RIGHT = {3, 4, 5, 8}
 
 
-def settled_net_pnl(positions: List[Dict[str, Any]]) -> float:
-    """Sum stored settled realized_pnl only. Does not invent or settle."""
+def settled_net_pnl(
+    positions: List[Dict[str, Any]], *, student: bool = False
+) -> float:
+    """Sum stored settled realized_pnl. student=True keeps price >= 20¢ only."""
     total = 0.0
     for pos in positions or []:
         if pos.get("status") != "settled":
@@ -270,6 +288,10 @@ def settled_net_pnl(positions: List[Dict[str, Any]]) -> float:
         raw = pos.get("realized_pnl")
         if raw is None:
             continue
+        if student:
+            price = _stored_ticket_price(pos)
+            if price is None or price < STUDENT_MIN_PRICE:
+                continue
         total += float(raw)
     return total
 
@@ -280,7 +302,8 @@ def open_paper_count(positions: List[Dict[str, Any]]) -> int:
 
 def format_paper_list_net(positions: List[Dict[str, Any]]) -> str:
     return (
-        f"Settled net P&L: {_signed(settled_net_pnl(positions))}   "
+        f"Settled net (all): {_signed(settled_net_pnl(positions))}\n"
+        f"Student net (price 20¢ or higher): {_signed(settled_net_pnl(positions, student=True))}\n"
         f"Open: {open_paper_count(positions)}"
     )
 
@@ -300,6 +323,7 @@ def format_paper_list_table(positions: List[Dict[str, Any]]) -> str:
                 str(p.get("status") or ""),
                 format_paper_list_outcome(p),
                 format_paper_list_pnl(p),
+                format_paper_list_tag(p),
             )
         )
     widths = [len(h) for h in _LIST_HEADERS]

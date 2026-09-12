@@ -11,6 +11,7 @@ from poly.practice.paper import (
     dump_paper_json,
     dump_postmortem_json,
     format_paper_list_net,
+    format_paper_list_table,
     list_entry,
     format_paper_postmortem,
     load_paper,
@@ -177,23 +178,84 @@ def test_list_net_sums_settled_only():
     rows = [
         {
             "status": "settled",
+            "ticket_price": 0.35,
             "realized_pnl": 3.71,
         },
         {
             "status": "settled",
+            "ticket_price": 0.80,
             "realized_pnl": -2.0,
         },
         {
             "status": "open",
+            "ticket_price": 0.50,
             "realized_pnl": None,
         },
         {
             "status": "open",
+            "ticket_price": 0.50,
             "realized_pnl": 99.0,
         },
     ]
-    assert format_paper_list_net(rows) == "Settled net P&L: +$1.71   Open: 2"
-    assert format_paper_list_net([]) == "Settled net P&L: +$0.00   Open: 0"
+    assert format_paper_list_net(rows) == (
+        "Settled net (all): +$1.71\n"
+        "Student net (price 20¢ or higher): +$1.71\n"
+        "Open: 2"
+    )
+    assert format_paper_list_net([]) == (
+        "Settled net (all): +$0.00\n"
+        "Student net (price 20¢ or higher): +$0.00\n"
+        "Open: 0"
+    )
+
+
+def test_list_net_student_excludes_nickel_toy():
+    toy = {
+        "id": "ddd44444",
+        "status": "settled",
+        "kind": "paper",
+        "side": "yes",
+        "asset": "BTC",
+        "question": "BTC price up in next 15 mins?",
+        "ticker": "KXBTC15M-TOY",
+        "ticket_price": 0.05,
+        "spend": 2.0,
+        "tickets": 40.0,
+        "outcome": "yes",
+        "realized_pnl": 39.67,
+    }
+    win = {
+        "id": "aaa11111",
+        "status": "settled",
+        "ticket_price": 0.35,
+        "realized_pnl": 3.71,
+        "side": "yes",
+        "question": "ETH price up in next 15 mins?",
+        "ticker": "KXETH15M-TEST",
+    }
+    lose = {
+        "id": "bbb22222",
+        "status": "settled",
+        "ticket_price": 0.80,
+        "realized_pnl": -2.0,
+        "side": "yes",
+        "question": "BTC price up in next 15 mins?",
+        "ticker": "KXBTC15M-TEST",
+    }
+    rows = [toy, win, lose]
+    assert format_paper_list_net(rows) == (
+        "Settled net (all): +$41.38\n"
+        "Student net (price 20¢ or higher): +$1.71\n"
+        "Open: 0"
+    )
+    table = format_paper_list_table(rows)
+    assert "ddd44444" in table
+    assert "0.05" in table
+    assert "+$39.67" in table
+    assert "cheap" in table
+    assert "aaa11111" in table
+    assert "+$3.71" in table
+    assert "-$2.00" in table
 
 
 def test_dump_paper_json_empty():
@@ -449,7 +511,9 @@ def test_practice_paper_list_empty_human(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert "No paper fills yet. Run practice walk then paper book." in result.stdout
     assert "No paper positions yet" not in result.stdout
-    assert "Settled net P&L: +$0.00   Open: 0" in result.stdout
+    assert "Settled net (all): +$0.00" in result.stdout
+    assert "Student net (price 20¢ or higher): +$0.00" in result.stdout
+    assert "Open: 0" in result.stdout
     assert PAPER_FOOTER in result.stdout
     assert not paper.exists()
 
@@ -517,13 +581,84 @@ def test_practice_paper_list_human_win_and_lose(monkeypatch, tmp_path):
     assert "SOL price up in next 15 mins?" in text
     assert "open" in text
     assert "settled" in text
-    assert "Settled net P&L: +$1.71   Open: 1" in text
+    assert "Settled net (all): +$1.71" in text
+    assert "Student net (price 20¢ or higher): +$1.71" in text
+    assert "Open: 1" in text
     for header in ("ID", "Market", "Side", "Price", "Dollars in", "Tickets", "Status", "Outcome", "P&L"):
         assert header in text
     dumped = _invoke_paper(["list", "--json"], monkeypatch, journal, paper)
     row = json.loads(dumped.stdout)["entries"][0]
     assert "question" not in row
     assert row["id"] == "ccc33333"
+
+
+def test_practice_paper_list_keeps_nickel_in_all_not_student(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    paper.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "positions": [
+                    {
+                        "id": "ddd44444",
+                        "status": "settled",
+                        "kind": "paper",
+                        "side": "yes",
+                        "asset": "BTC",
+                        "question": "BTC price up in next 15 mins?",
+                        "ticker": "KXBTC15M-TOY",
+                        "ticket_price": 0.05,
+                        "spend": 2.0,
+                        "tickets": 40.0,
+                        "outcome": "yes",
+                        "realized_pnl": 39.67,
+                    },
+                    {
+                        "id": "aaa11111",
+                        "status": "settled",
+                        "kind": "paper",
+                        "side": "yes",
+                        "asset": "ETH",
+                        "question": "ETH price up in next 15 mins?",
+                        "ticker": "KXETH15M-TEST",
+                        "ticket_price": 0.35,
+                        "spend": 2.0,
+                        "tickets": 5.7143,
+                        "outcome": "yes",
+                        "realized_pnl": 3.71,
+                    },
+                    {
+                        "id": "bbb22222",
+                        "status": "settled",
+                        "kind": "paper",
+                        "side": "yes",
+                        "asset": "BTC",
+                        "question": "BTC price up in next 15 mins?",
+                        "ticker": "KXBTC15M-TEST",
+                        "ticket_price": 0.80,
+                        "spend": 2.0,
+                        "tickets": 2.5,
+                        "outcome": "no",
+                        "realized_pnl": -2.0,
+                    },
+                ],
+            }
+        )
+        + "\n"
+    )
+    result = _invoke_paper(["list"], monkeypatch, journal, paper)
+    assert result.exit_code == 0
+    text = result.stdout
+    assert "ddd44444" in text
+    assert "0.05" in text
+    assert "+$39.67" in text
+    assert "cheap" in text
+    assert "Settled net (all): +$41.38" in text
+    assert "Student net (price 20¢ or higher): +$1.71" in text
+    assert "Open: 0" in text
+    assert PAPER_FOOTER in text
+    assert json.loads(paper.read_text())["positions"][0]["realized_pnl"] == 39.67
 
 
 def test_practice_paper_book_same_ticker_refuses_second(monkeypatch, tmp_path):
