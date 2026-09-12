@@ -70,6 +70,7 @@ from poly.practice.paper import (
     format_paper_settle,
     format_postmortem_refuse,
     load_paper,
+    refuse_expired_window,
     same_market_message,
     save_paper,
     select_closed_paper,
@@ -773,6 +774,24 @@ def _newest_journal_entry():
     return entries[-1]
 
 
+def peek_market_status(ticker: Optional[str]) -> Optional[str]:
+    """Read-only Kalshi status. Used only when the snapshot has no close time."""
+    name = str(ticker or "").strip()
+    if not name:
+        return None
+    try:
+        data = KalshiClient()._get_json(f"/markets/{name}")
+    except (OSError, httpx.HTTPError, ValueError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    market = data.get("market") if isinstance(data.get("market"), dict) else data
+    status = market.get("status")
+    if status is None:
+        return None
+    return str(status)
+
+
 @paper_app.command("book")
 def practice_paper_book(
     last: bool = typer.Option(
@@ -792,6 +811,10 @@ def practice_paper_book(
         raise typer.Exit(1)
     path = default_paper_path()
     blob = load_paper(path)
+    expired = refuse_expired_window(entry, status_reader=peek_market_status)
+    if expired:
+        console.print(format_paper_refuse(expired))
+        raise typer.Exit(1)
     hit = find_same_market(blob.get("positions") or [], entry.get("ticker"))
     if hit:
         console.print(format_paper_refuse(same_market_message(hit)))

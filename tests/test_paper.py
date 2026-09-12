@@ -6,6 +6,8 @@ from poly.practice.paper import (
     PAPER_FOOTER,
     PAPER_SCHEMA,
     POSTMORTEM_FOOTER,
+    WINDOW_OVER,
+    WINDOW_UNKNOWN,
     book_from_entry,
     default_paper_path,
     dump_paper_json,
@@ -16,6 +18,7 @@ from poly.practice.paper import (
     format_paper_postmortem,
     load_paper,
     paper_lesson,
+    refuse_expired_window,
     select_closed_paper,
     settle_paper,
 )
@@ -35,7 +38,11 @@ BTC_SKIP = {
     "edge": "not ready",
     "hedge": "SKIP",
     "pair_cost": 1.01,
+    "close_time": "2099-01-01T00:00:00+00:00",
 }
+
+PAST_TICKER = "KXBTC15M-26SEP101530-30"
+FROZEN_NOW = "2026-09-12T14:40:00-05:00"
 
 DEMO_CHEAP = {
     "saved_at": "2026-08-29T18:44:15+00:00",
@@ -383,6 +390,7 @@ def _invoke_paper(args, monkeypatch, journal_path, paper_path):
 
     monkeypatch.setenv("NORTHSTAR_WALK_JOURNAL", str(journal_path))
     monkeypatch.setenv("NORTHSTAR_PAPER_POSITIONS", str(paper_path))
+    monkeypatch.setenv("NORTHSTAR_NOW", FROZEN_NOW)
     return CliRunner().invoke(app, ["practice", "paper", *args])
 
 
@@ -395,6 +403,7 @@ def test_practice_paper_book_last_no_kalshi(monkeypatch, tmp_path):
         raise AssertionError("must not fetch Kalshi to book --last")
 
     monkeypatch.setattr("poly.cli.load_walk_quote", boom)
+    monkeypatch.setattr("poly.cli.peek_market_status", boom)
     result = _invoke_paper(["book", "--last"], monkeypatch, journal, paper)
     assert result.exit_code == 0
     assert PAPER_FOOTER in result.stdout
@@ -406,6 +415,72 @@ def test_practice_paper_book_last_no_kalshi(monkeypatch, tmp_path):
     assert pos["asset"] == "BTC"
     assert pos["side"] == "yes"
     assert pos["tickets"] == 2.5
+
+
+def test_refuse_expired_window_uses_close_time_and_ticker_clock():
+    from datetime import datetime
+
+    now = datetime.fromisoformat(FROZEN_NOW)
+    open_row = dict(BTC_SKIP)
+    assert refuse_expired_window(open_row, now=now) is None
+    closed = dict(BTC_SKIP)
+    closed["close_time"] = "2026-09-10T15:30:00-04:00"
+    assert refuse_expired_window(closed, now=now) == WINDOW_OVER
+    ticker_over = dict(BTC_SKIP)
+    ticker_over.pop("close_time")
+    ticker_over["ticker"] = PAST_TICKER
+    assert refuse_expired_window(ticker_over, now=now) == WINDOW_OVER
+    ticker_open = dict(BTC_SKIP)
+    ticker_open.pop("close_time")
+    ticker_open["ticker"] = "KXBTC15M-26DEC151530-30"
+    assert refuse_expired_window(ticker_open, now=now) is None
+    demo = dict(DEMO_CHEAP)
+    assert refuse_expired_window(demo, now=now) is None
+    unknown = {
+        "asset": "BTC",
+        "ticker": "KXBTC15M-TEST",
+        "edge": "not ready",
+    }
+    assert refuse_expired_window(unknown, now=now) == WINDOW_UNKNOWN
+    assert (
+        refuse_expired_window(unknown, now=now, status_reader=lambda _t: "closed")
+        == WINDOW_OVER
+    )
+    assert refuse_expired_window(unknown, now=now, status_reader=lambda _t: "open") is None
+
+
+def test_practice_paper_book_expired_window_writes_nothing(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    entry = dict(BTC_SKIP)
+    entry["close_time"] = "2026-09-10T15:30:00-04:00"
+    entry["ticker"] = PAST_TICKER
+    _write_journal(journal, [entry])
+
+    def boom(*_a, **_k):
+        raise AssertionError("must not fetch Kalshi when close_time is known")
+
+    monkeypatch.setattr("poly.cli.peek_market_status", boom)
+    result = _invoke_paper(["book"], monkeypatch, journal, paper)
+    assert result.exit_code == 1
+    assert WINDOW_OVER in (result.stdout or "")
+    assert "This window is over. Run practice walk on a live ticker." in result.stdout
+    assert PAPER_FOOTER in (result.stdout or "")
+    assert not paper.exists()
+
+
+def test_practice_paper_book_unknown_window_writes_nothing(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    entry = dict(BTC_SKIP)
+    entry.pop("close_time")
+    entry["ticker"] = "KXBTC15M-TEST"
+    _write_journal(journal, [entry])
+    monkeypatch.setattr("poly.cli.peek_market_status", lambda *_a, **_k: None)
+    result = _invoke_paper(["book"], monkeypatch, journal, paper)
+    assert result.exit_code == 1
+    assert WINDOW_UNKNOWN in (result.stdout or "")
+    assert not paper.exists()
 
 
 def test_practice_paper_book_empty_journal(monkeypatch, tmp_path):

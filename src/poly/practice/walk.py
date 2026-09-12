@@ -39,6 +39,7 @@ class WalkQuote:
     model_prob: Optional[float]
     edge: Optional[float]
     ticker: Optional[str] = None
+    close_time: Optional[str] = None
 
 
 # LEARNING.md Steps 2–4: $2 on YES at 40¢, guess 50¢, NO 40¢ cheap pair.
@@ -241,6 +242,8 @@ def journal_entry(
         entry["source"] = source
     if quote.ticker:
         entry["ticker"] = quote.ticker
+    if quote.close_time:
+        entry["close_time"] = quote.close_time
     return entry
 
 
@@ -264,6 +267,7 @@ def quote_from_journal_entry(entry: Dict[str, Any]) -> Tuple[WalkQuote, float]:
         model_prob=model_prob,
         edge=edge,
         ticker=str(entry["ticker"]) if entry.get("ticker") else None,
+        close_time=str(entry["close_time"]) if entry.get("close_time") else None,
     )
     return quote, spend
 
@@ -387,6 +391,7 @@ def _quote_from_feed(feed: Any, asset_u: str, settings: Settings) -> Optional[Wa
         model_prob = signal.model_prob
         edge = model_prob - yes_price
     ticker = str(getattr(market, "ticker", "") or "").strip() or None
+    close_time = str(getattr(market, "close_time", "") or "").strip() or None
     return WalkQuote(
         asset=market.asset,
         question=market.question,
@@ -395,6 +400,7 @@ def _quote_from_feed(feed: Any, asset_u: str, settings: Settings) -> Optional[Wa
         model_prob=model_prob,
         edge=edge,
         ticker=ticker,
+        close_time=close_time,
     )
 
 

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from zoneinfo import ZoneInfo
 import json
 import os
+import re
 import uuid
 
 from poly.practice.walk import (
@@ -31,6 +33,31 @@ BOTH_REFUSE = (
 SAME_MARKET_REFUSE = (
     "Already have a paper fill on this market (id {id}). Walk a new ticker."
 )
+WINDOW_OVER = "This window is over. Run practice walk on a live ticker."
+WINDOW_UNKNOWN = "cannot confirm market is live."
+VENUE_TZ = ZoneInfo("America/New_York")
+_MONTHS = {
+    "JAN": 1,
+    "FEB": 2,
+    "MAR": 3,
+    "APR": 4,
+    "MAY": 5,
+    "JUN": 6,
+    "JUL": 7,
+    "AUG": 8,
+    "SEP": 9,
+    "OCT": 10,
+    "NOV": 11,
+    "DEC": 12,
+}
+_TICKER_CLOSE = re.compile(
+    r"^KX[A-Z0-9]+15M-(\d{2})([A-Z]{3})(\d{2})(\d{4})(?:-.+)?$",
+    re.IGNORECASE,
+)
+_CLOSED_STATUSES = frozenset(
+    {"closed", "settled", "determined", "finalized", "inactive"}
+)
+_OPEN_STATUSES = frozenset({"open", "active"})
 
 
 def default_paper_path() -> Path:
@@ -142,6 +169,81 @@ def find_same_market(
 
 def same_market_message(pos: Dict[str, Any]) -> str:
     return SAME_MARKET_REFUSE.format(id=pos.get("id"))
+
+
+def paper_now() -> datetime:
+    raw = os.environ.get("NORTHSTAR_NOW")
+    if raw:
+        return datetime.fromisoformat(raw)
+    return datetime.now().astimezone()
+
+
+def parse_close_time(raw: Any) -> Optional[datetime]:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        when = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=VENUE_TZ)
+    return when
+
+
+def parse_ticker_close(ticker: Any) -> Optional[datetime]:
+    text = str(ticker or "").strip()
+    match = _TICKER_CLOSE.match(text)
+    if not match:
+        return None
+    yy, mon, dd, hhmm = match.groups()
+    month = _MONTHS.get(mon.upper())
+    if month is None:
+        return None
+    try:
+        year = 2000 + int(yy)
+        day = int(dd)
+        hour = int(hhmm[:2])
+        minute = int(hhmm[2:])
+        return datetime(year, month, day, hour, minute, tzinfo=VENUE_TZ)
+    except ValueError:
+        return None
+
+
+def window_end(entry: Dict[str, Any]) -> Optional[datetime]:
+    """Prefer stored snapshot close_time. Else ticker HHMM in venue TZ."""
+    close = parse_close_time(entry.get("close_time"))
+    if close is not None:
+        return close
+    return parse_ticker_close(entry.get("ticker"))
+
+
+def refuse_expired_window(
+    entry: Dict[str, Any],
+    *,
+    now: Optional[datetime] = None,
+    status_reader: Optional[Callable[[Optional[str]], Optional[str]]] = None,
+) -> Optional[str]:
+    """None if the 15m window is still live. Never invents an end time."""
+    if last_walk_kind(entry) == "demo":
+        return None
+    clock = now or paper_now()
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=VENUE_TZ)
+    end = window_end(entry)
+    if end is not None:
+        return WINDOW_OVER if clock >= end else None
+    status = None
+    if status_reader is not None:
+        status = status_reader(entry.get("ticker"))
+    label = str(status or "").strip().lower()
+    if label in _CLOSED_STATUSES:
+        return WINDOW_OVER
+    if label in _OPEN_STATUSES:
+        return None
+    return WINDOW_UNKNOWN
 
 
 def book_from_entry(

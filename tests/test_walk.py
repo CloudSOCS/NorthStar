@@ -110,6 +110,22 @@ def test_demo_journal_entry_marks_source():
     )
     assert "source" not in live
     assert live["ticker"] == "KXETH15M-TEST"
+    stamped = journal_entry(
+        WalkQuote(
+            "ETH",
+            "ETH",
+            0.40,
+            0.40,
+            None,
+            None,
+            ticker="KXETH15M-26DEC151530-30",
+            close_time="2026-12-15T15:30:00-05:00",
+        ),
+        spend=2.0,
+    )
+    assert stamped["close_time"] == "2026-12-15T15:30:00-05:00"
+    quote, _spend = quote_from_journal_entry(stamped)
+    assert quote.close_time == "2026-12-15T15:30:00-05:00"
 
 
 def test_format_walk_live_shows_ticker():
