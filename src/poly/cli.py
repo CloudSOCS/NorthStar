@@ -61,13 +61,16 @@ from poly.practice.paper import (
     default_paper_path,
     dump_paper_json,
     dump_postmortem_json,
+    find_same_market,
     format_paper_book,
+    format_paper_list_net,
     format_paper_list_table,
     format_paper_postmortem,
     format_paper_refuse,
     format_paper_settle,
     format_postmortem_refuse,
     load_paper,
+    same_market_message,
     save_paper,
     select_closed_paper,
     settle_paper,
@@ -787,14 +790,18 @@ def practice_paper_book(
         console.print("[dim]No saved walks yet. Run: northstar practice walk --save[/dim]")
         console.print(f"[dim]{PAPER_FOOTER}[/dim]")
         raise typer.Exit(1)
+    path = default_paper_path()
+    blob = load_paper(path)
+    hit = find_same_market(blob.get("positions") or [], entry.get("ticker"))
+    if hit:
+        console.print(format_paper_refuse(same_market_message(hit)))
+        raise typer.Exit(1)
     try:
         booked = book_from_entry(entry, side=side, both=both)
     except ValueError as exc:
         console.print(format_paper_refuse(str(exc)))
         raise typer.Exit(1)
     positions = list(booked) if isinstance(booked, tuple) else [booked]
-    path = default_paper_path()
-    blob = load_paper(path)
     blob["positions"].extend(positions)
     save_paper(blob, path)
     console.print(format_paper_book(positions))
@@ -814,10 +821,12 @@ def practice_paper_list(
         return
     if not positions:
         console.print(f"[dim]{PAPER_LIST_EMPTY}[/dim]")
+        console.print(format_paper_list_net(positions))
         console.print(f"[dim]{PAPER_FOOTER}[/dim]")
         return
     print(format_paper_list_table(positions), end="")
     console.print(f"[dim]{path}[/dim]")
+    console.print(format_paper_list_net(positions))
     console.print(f"[dim]{PAPER_FOOTER}[/dim]")
 
 

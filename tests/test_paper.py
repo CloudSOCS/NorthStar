@@ -10,6 +10,7 @@ from poly.practice.paper import (
     default_paper_path,
     dump_paper_json,
     dump_postmortem_json,
+    format_paper_list_net,
     list_entry,
     format_paper_postmortem,
     load_paper,
@@ -170,6 +171,29 @@ LIST_KEYS = (
     "outcome",
     "realized_pnl",
 )
+
+
+def test_list_net_sums_settled_only():
+    rows = [
+        {
+            "status": "settled",
+            "realized_pnl": 3.71,
+        },
+        {
+            "status": "settled",
+            "realized_pnl": -2.0,
+        },
+        {
+            "status": "open",
+            "realized_pnl": None,
+        },
+        {
+            "status": "open",
+            "realized_pnl": 99.0,
+        },
+    ]
+    assert format_paper_list_net(rows) == "Settled net P&L: +$1.71   Open: 2"
+    assert format_paper_list_net([]) == "Settled net P&L: +$0.00   Open: 0"
 
 
 def test_dump_paper_json_empty():
@@ -425,6 +449,7 @@ def test_practice_paper_list_empty_human(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert "No paper fills yet. Run practice walk then paper book." in result.stdout
     assert "No paper positions yet" not in result.stdout
+    assert "Settled net P&L: +$0.00   Open: 0" in result.stdout
     assert PAPER_FOOTER in result.stdout
     assert not paper.exists()
 
@@ -492,12 +517,76 @@ def test_practice_paper_list_human_win_and_lose(monkeypatch, tmp_path):
     assert "SOL price up in next 15 mins?" in text
     assert "open" in text
     assert "settled" in text
+    assert "Settled net P&L: +$1.71   Open: 1" in text
     for header in ("ID", "Market", "Side", "Price", "Dollars in", "Tickets", "Status", "Outcome", "P&L"):
         assert header in text
     dumped = _invoke_paper(["list", "--json"], monkeypatch, journal, paper)
     row = json.loads(dumped.stdout)["entries"][0]
     assert "question" not in row
     assert row["id"] == "ccc33333"
+
+
+def test_practice_paper_book_same_ticker_refuses_second(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    entry = dict(BTC_SKIP)
+    entry["ticker"] = "KXBTC15M-26SEP101530-30"
+    _write_journal(journal, [entry])
+    first = _invoke_paper(["book"], monkeypatch, journal, paper)
+    assert first.exit_code == 0
+    before = paper.read_text()
+    pid = json.loads(before)["positions"][0]["id"]
+    second = _invoke_paper(["book"], monkeypatch, journal, paper)
+    assert second.exit_code == 1
+    assert (
+        f"Already have a paper fill on this market (id {pid}). Walk a new ticker."
+        in (second.stdout or "")
+    )
+    assert PAPER_FOOTER in (second.stdout or "")
+    assert paper.read_text() == before
+    assert len(json.loads(before)["positions"]) == 1
+
+
+def test_practice_paper_book_same_ticker_refuses_after_settle(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    entry = dict(BTC_SKIP)
+    entry["ticker"] = "KXBTC15M-26SEP101530-30"
+    _write_journal(journal, [entry])
+    _invoke_paper(["book"], monkeypatch, journal, paper)
+    pid = json.loads(paper.read_text())["positions"][0]["id"]
+    settled = _invoke_paper(
+        ["settle", "--id", pid, "--outcome", "no"], monkeypatch, journal, paper
+    )
+    assert settled.exit_code == 0
+    before = paper.read_text()
+    again = _invoke_paper(["book"], monkeypatch, journal, paper)
+    assert again.exit_code == 1
+    assert (
+        f"Already have a paper fill on this market (id {pid}). Walk a new ticker."
+        in (again.stdout or "")
+    )
+    assert paper.read_text() == before
+
+
+def test_practice_paper_book_new_ticker_is_allowed(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    first = dict(BTC_SKIP)
+    first["ticker"] = "KXBTC15M-26SEP101530-30"
+    second = dict(BTC_SKIP)
+    second["saved_at"] = "2026-09-12T14:30:00-05:00"
+    second["ticker"] = "KXBTC15M-26SEP101545-30"
+    _write_journal(journal, [first])
+    assert _invoke_paper(["book"], monkeypatch, journal, paper).exit_code == 0
+    _write_journal(journal, [first, second])
+    result = _invoke_paper(["book"], monkeypatch, journal, paper)
+    assert result.exit_code == 0
+    rows = json.loads(paper.read_text())["positions"]
+    assert [p["ticker"] for p in rows] == [
+        "KXBTC15M-26SEP101530-30",
+        "KXBTC15M-26SEP101545-30",
+    ]
 
 
 def test_practice_paper_list_has_no_id_flag(monkeypatch, tmp_path):

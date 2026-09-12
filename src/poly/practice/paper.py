@@ -27,6 +27,9 @@ POSTMORTEM_BANNER = POSTMORTEM_FOOTER
 BOTH_REFUSE = (
     "Will not book both sides. Pair is not a cheap hedge (need pair cost under $1)."
 )
+SAME_MARKET_REFUSE = (
+    "Already have a paper fill on this market (id {id}). Walk a new ticker."
+)
 
 
 def default_paper_path() -> Path:
@@ -121,6 +124,23 @@ def _pair_cost(entry: Dict[str, Any]) -> float:
     if raw is not None:
         return float(raw)
     return pair_cost(float(entry.get("yes_price") or 0.0), float(entry.get("no_price") or 0.0))
+
+
+def find_same_market(
+    positions: List[Dict[str, Any]], ticker: Optional[str]
+) -> Optional[Dict[str, Any]]:
+    """First fill on this ticker, open or settled. Empty ticker → no match."""
+    needle = str(ticker or "").strip()
+    if not needle:
+        return None
+    for pos in positions or []:
+        if str(pos.get("ticker") or "").strip() == needle:
+            return pos
+    return None
+
+
+def same_market_message(pos: Dict[str, Any]) -> str:
+    return SAME_MARKET_REFUSE.format(id=pos.get("id"))
 
 
 def book_from_entry(
@@ -239,6 +259,30 @@ _LIST_HEADERS = (
     "P&L",
 )
 _LIST_RIGHT = {3, 4, 5, 8}
+
+
+def settled_net_pnl(positions: List[Dict[str, Any]]) -> float:
+    """Sum stored settled realized_pnl only. Does not invent or settle."""
+    total = 0.0
+    for pos in positions or []:
+        if pos.get("status") != "settled":
+            continue
+        raw = pos.get("realized_pnl")
+        if raw is None:
+            continue
+        total += float(raw)
+    return total
+
+
+def open_paper_count(positions: List[Dict[str, Any]]) -> int:
+    return sum(1 for pos in positions or [] if pos.get("status") == "open")
+
+
+def format_paper_list_net(positions: List[Dict[str, Any]]) -> str:
+    return (
+        f"Settled net P&L: {_signed(settled_net_pnl(positions))}   "
+        f"Open: {open_paper_count(positions)}"
+    )
 
 
 def format_paper_list_table(positions: List[Dict[str, Any]]) -> str:
