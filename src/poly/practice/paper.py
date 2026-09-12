@@ -20,6 +20,7 @@ from poly.practice.walk import (
 
 PAPER_SCHEMA = 1
 PAPER_FOOTER = "This is paper only — no live order was placed."
+PAPER_LIST_EMPTY = "No paper fills yet. Run practice walk then paper book."
 PAPER_BANNER = "This is a paper fill — no live order will be placed"
 POSTMORTEM_FOOTER = "This is a paper post-mortem — no live order, graph not written"
 POSTMORTEM_BANNER = POSTMORTEM_FOOTER
@@ -203,6 +204,73 @@ def list_entry(pos: Dict[str, Any]) -> Dict[str, Any]:
         "outcome": pos.get("outcome"),
         "realized_pnl": pos.get("realized_pnl"),
     }
+
+
+def format_paper_list_market(pos: Dict[str, Any]) -> str:
+    """Ticker if stored, else the question. Does not invent a market."""
+    ticker = str(pos.get("ticker") or "").strip()
+    if ticker:
+        return ticker
+    return str(pos.get("question") or "")
+
+
+def format_paper_list_pnl(pos: Dict[str, Any]) -> str:
+    realized = pos.get("realized_pnl")
+    if realized is None:
+        return "—"
+    return _signed(float(realized))
+
+
+def format_paper_list_outcome(pos: Dict[str, Any]) -> str:
+    if pos.get("status") != "settled":
+        return "—"
+    return str(pos.get("outcome") or "").upper()
+
+
+_LIST_HEADERS = (
+    "ID",
+    "Market",
+    "Side",
+    "Price",
+    "Dollars in",
+    "Tickets",
+    "Status",
+    "Outcome",
+    "P&L",
+)
+_LIST_RIGHT = {3, 4, 5, 8}
+
+
+def format_paper_list_table(positions: List[Dict[str, Any]]) -> str:
+    """Human table. Newest first. Does not invent edge or settle."""
+    rows = []
+    for p in reversed(positions or []):
+        rows.append(
+            (
+                str(p.get("id") or ""),
+                format_paper_list_market(p),
+                str(p.get("side") or "").upper(),
+                f"{float(p.get('ticket_price') or 0):.2f}",
+                f"${float(p.get('spend') or 0):.2f}",
+                f"{float(p.get('tickets') or 0):.2f}",
+                str(p.get("status") or ""),
+                format_paper_list_outcome(p),
+                format_paper_list_pnl(p),
+            )
+        )
+    widths = [len(h) for h in _LIST_HEADERS]
+    for row in rows:
+        widths = [max(w, len(cell)) for w, cell in zip(widths, row)]
+
+    def _line(cols: tuple) -> str:
+        parts = []
+        for i, (cell, width) in enumerate(zip(cols, widths)):
+            parts.append(cell.rjust(width) if i in _LIST_RIGHT else cell.ljust(width))
+        return "  ".join(parts)
+
+    lines = ["Paper fills (not live)", _line(_LIST_HEADERS)]
+    lines.extend(_line(row) for row in rows)
+    return "\n".join(lines) + "\n"
 
 
 def dump_paper_json(positions: List[Dict[str, Any]]) -> Dict[str, Any]:

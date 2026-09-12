@@ -76,6 +76,7 @@ northstar practice journal --json
 ```
 Shows recent saved walks (time, kind, asset, YES/NO, spend, edge, hedge). Read-only.
 `--json` prints the same snapshots as JSON (newest first), each with `"kind": "demo"` or `"kind": "live"`. That field is print-time only; the notebook file is not rewritten. No order.
+Read paper fills (id, market, side, price, dollars in, tickets, status, outcome, P&L) with `northstar practice paper list`. That is not the walk journal.
 
 ## 8. Replay the last saved lesson
 ```bash

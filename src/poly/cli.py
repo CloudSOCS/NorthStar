@@ -55,12 +55,14 @@ from poly.practice.orientation import (
 )
 from poly.practice.paper import (
     PAPER_FOOTER,
+    PAPER_LIST_EMPTY,
     POSTMORTEM_FOOTER,
     book_from_entry,
     default_paper_path,
     dump_paper_json,
     dump_postmortem_json,
     format_paper_book,
+    format_paper_list_table,
     format_paper_postmortem,
     format_paper_refuse,
     format_paper_settle,
@@ -810,34 +812,11 @@ def practice_paper_list(
     if as_json:
         print(json.dumps(dump_paper_json(positions), indent=2))
         return
-    rows = list(reversed(positions))
-    if not rows:
-        console.print("[dim]No paper positions yet. Run: northstar practice paper book --last[/dim]")
+    if not positions:
+        console.print(f"[dim]{PAPER_LIST_EMPTY}[/dim]")
         console.print(f"[dim]{PAPER_FOOTER}[/dim]")
         return
-    table = Table(title="Paper positions (not live)")
-    table.add_column("Time")
-    table.add_column("ID")
-    table.add_column("Asset")
-    table.add_column("Side")
-    table.add_column("Tickets", justify="right")
-    table.add_column("Spend", justify="right")
-    table.add_column("Status")
-    table.add_column("P&L")
-    for p in rows:
-        realized = p.get("realized_pnl")
-        pnl = format_journal_edge(realized) if realized is not None else "—"
-        table.add_row(
-            format_journal_time(str(p.get("booked_at") or "")),
-            str(p.get("id") or ""),
-            str(p.get("asset") or ""),
-            str(p.get("side") or ""),
-            f"{float(p.get('tickets') or 0):.2f}",
-            f"${float(p.get('spend') or 0):.2f}",
-            str(p.get("status") or ""),
-            pnl,
-        )
-    console.print(table)
+    print(format_paper_list_table(positions), end="")
     console.print(f"[dim]{path}[/dim]")
     console.print(f"[dim]{PAPER_FOOTER}[/dim]")
 

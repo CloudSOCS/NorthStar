@@ -418,6 +418,96 @@ def test_practice_paper_list_json_empty(monkeypatch, tmp_path):
     assert not paper.exists()
 
 
+def test_practice_paper_list_empty_human(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "missing_paper.json"
+    result = _invoke_paper(["list"], monkeypatch, journal, paper)
+    assert result.exit_code == 0
+    assert "No paper fills yet. Run practice walk then paper book." in result.stdout
+    assert "No paper positions yet" not in result.stdout
+    assert PAPER_FOOTER in result.stdout
+    assert not paper.exists()
+
+
+def test_practice_paper_list_human_win_and_lose(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "paper_positions.json"
+    win = {
+        "id": "aaa11111",
+        "status": "settled",
+        "kind": "paper",
+        "side": "yes",
+        "asset": "ETH",
+        "question": "ETH price up in next 15 mins?",
+        "ticker": "KXETH15M-TEST",
+        "ticket_price": 0.35,
+        "spend": 2.0,
+        "tickets": 5.7143,
+        "outcome": "yes",
+        "realized_pnl": 3.71,
+    }
+    lose = {
+        "id": "bbb22222",
+        "status": "settled",
+        "kind": "paper",
+        "side": "yes",
+        "asset": "BTC",
+        "question": "BTC price up in next 15 mins?",
+        "ticker": "KXBTC15M-TEST",
+        "ticket_price": 0.80,
+        "spend": 2.0,
+        "tickets": 2.5,
+        "outcome": "no",
+        "realized_pnl": -2.0,
+    }
+    open_pos = {
+        "id": "ccc33333",
+        "status": "open",
+        "kind": "paper",
+        "side": "no",
+        "asset": "SOL",
+        "question": "SOL price up in next 15 mins?",
+        "ticket_price": 0.50,
+        "spend": 2.0,
+        "tickets": 4.0,
+        "outcome": None,
+        "realized_pnl": None,
+    }
+    paper.write_text(
+        json.dumps({"schema_version": 1, "positions": [win, lose, open_pos]}) + "\n"
+    )
+    result = _invoke_paper(["list"], monkeypatch, journal, paper)
+    assert result.exit_code == 0
+    text = result.stdout
+    assert PAPER_FOOTER in text
+    assert "aaa11111" in text
+    assert "KXETH15M-TEST" in text
+    assert "0.35" in text
+    assert "+$3.71" in text
+    assert "bbb22222" in text
+    assert "KXBTC15M-TEST" in text
+    assert "0.80" in text
+    assert "-$2.00" in text
+    assert "ccc33333" in text
+    assert "SOL price up in next 15 mins?" in text
+    assert "open" in text
+    assert "settled" in text
+    for header in ("ID", "Market", "Side", "Price", "Dollars in", "Tickets", "Status", "Outcome", "P&L"):
+        assert header in text
+    dumped = _invoke_paper(["list", "--json"], monkeypatch, journal, paper)
+    row = json.loads(dumped.stdout)["entries"][0]
+    assert "question" not in row
+    assert row["id"] == "ccc33333"
+
+
+def test_practice_paper_list_has_no_id_flag(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    paper = tmp_path / "missing_paper.json"
+    result = _invoke_paper(["list", "--id", "aaa11111"], monkeypatch, journal, paper)
+    assert result.exit_code != 0
+    assert "No paper fills yet" not in (result.stdout or "")
+
+
 def test_practice_paper_list_json_corrupt_exits_nonzero(monkeypatch, tmp_path):
     journal = tmp_path / "walk_journal.json"
     paper = tmp_path / "paper_positions.json"
