@@ -12,7 +12,9 @@ from poly.practice.walk import (
     dump_journal_json,
     format_journal_edge,
     format_journal_time,
+    format_walk_window_line,
     last_walk_kind,
+    last_walk_window,
 )
 
 STATUS_SCHEMA = 1
@@ -122,11 +124,17 @@ def product_status_payload(
         "fences": dict(FENCES),
         "last_walk": last,
         "last_walk_kind": last_walk_kind(last),
+        "last_walk_window": last_walk_window(last),
         "last_paper": last_p,
         "last_paper_kind": last_paper_kind(last_p),
         "helper": HELPER,
         "continue": list(CONTINUE),
     }
+
+
+def format_last_walk_window_line(state: str) -> Optional[str]:
+    """Same OVER/CLOSING lines as walk. live/unknown stay off the human table."""
+    return format_walk_window_line(state)
 
 
 def format_last_walk_line(entry: Optional[Dict[str, Any]]) -> str:

@@ -51,6 +51,7 @@ from poly.practice.orientation import (
     format_last_paper_line,
     format_last_walk_kind,
     format_last_walk_line,
+    format_last_walk_window_line,
     format_status_code_line,
     product_status_payload,
     status_code_view,
@@ -1169,6 +1170,9 @@ def status(
     table.add_row("Code", format_status_code_line(code).strip())
     table.add_row("Last lesson", format_last_walk_kind(payload["last_walk"]))
     table.add_row("Last saved lesson", format_last_walk_line(payload["last_walk"]))
+    window_line = format_last_walk_window_line(payload["last_walk_window"])
+    if window_line:
+        table.add_row("Last walk window", window_line)
     table.add_row("Last paper fill", format_last_paper_line(payload["last_paper"]))
     table.add_row("Continue", "\n".join(CONTINUE))
     console.print(table)

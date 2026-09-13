@@ -97,6 +97,38 @@ def _signed_usd(amount: float) -> str:
     return f"{sign}${abs(amount):.2f}"
 
 
+def last_walk_window(
+    entry: Optional[Dict[str, Any]],
+    *,
+    now: Optional[datetime] = None,
+) -> str:
+    """over / closing / live / unknown. Demo or no clock → unknown. Never invents."""
+    if not entry or last_walk_kind(entry) == "demo":
+        return "unknown"
+    from poly.practice.paper import VENUE_TZ, paper_now, window_end
+
+    clock = now or paper_now()
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=VENUE_TZ)
+    end = window_end(entry)
+    if end is None:
+        return "unknown"
+    if clock >= end:
+        return "over"
+    remaining = (end - clock).total_seconds()
+    if remaining <= WINDOW_CLOSING_SECONDS:
+        return "closing"
+    return "live"
+
+
+def format_walk_window_line(state: str) -> Optional[str]:
+    if state == "over":
+        return WINDOW_OVER_LINE
+    if state == "closing":
+        return WINDOW_CLOSING_LINE
+    return None
+
+
 def walk_window_line(
     quote: WalkQuote,
     *,
@@ -106,20 +138,11 @@ def walk_window_line(
     """Warn when the 15m close is past or under a minute away. Demo stays silent."""
     if demo:
         return None
-    from poly.practice.paper import VENUE_TZ, paper_now, window_end
-
-    clock = now or paper_now()
-    if clock.tzinfo is None:
-        clock = clock.replace(tzinfo=VENUE_TZ)
-    end = window_end({"close_time": quote.close_time, "ticker": quote.ticker})
-    if end is None:
-        return None
-    if clock >= end:
-        return WINDOW_OVER_LINE
-    remaining = (end - clock).total_seconds()
-    if remaining <= WINDOW_CLOSING_SECONDS:
-        return WINDOW_CLOSING_LINE
-    return None
+    state = last_walk_window(
+        {"close_time": quote.close_time, "ticker": quote.ticker},
+        now=now,
+    )
+    return format_walk_window_line(state)
 
 
 def paid_price(ask: Optional[float], mid: float) -> float:

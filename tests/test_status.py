@@ -26,6 +26,7 @@ def test_product_status_empty_last_walk():
     assert blob["helper"] == "must not run kalshi-live"
     assert blob["last_walk"] is None
     assert blob["last_walk_kind"] is None
+    assert blob["last_walk_window"] == "unknown"
     assert blob["continue"] == CONTINUE
     assert blob["continue"] == [
         "uv run northstar status --json",
@@ -192,6 +193,7 @@ def test_status_json_empty_missing_file(monkeypatch, tmp_path):
     blob = json.loads(result.stdout)
     assert blob["last_walk"] is None
     assert blob["last_walk_kind"] is None
+    assert blob["last_walk_window"] == "unknown"
     assert blob["last_paper"] is None
     assert blob["last_paper_kind"] is None
     assert blob["fences"]["live_orders"] == "approve-per-order"
@@ -317,7 +319,9 @@ def test_status_human_and_json_label_demo(monkeypatch, tmp_path):
     dumped = _invoke_status(["--json"], monkeypatch, path)
     blob = json.loads(dumped.stdout)
     assert blob["last_walk_kind"] == "demo"
+    assert blob["last_walk_window"] == "unknown"
     assert blob["last_walk"]["source"] == "demo"
+    assert "Window:" not in human.stdout
 
 
 def test_status_json_newest_closed_paper(monkeypatch, tmp_path):
@@ -488,4 +492,64 @@ def test_status_code_from_env_or_unknown(monkeypatch, tmp_path):
     dumped = _invoke_status(["--json"], monkeypatch, journal)
     assert json.loads(dumped.stdout)["code"] == "unknown"
     assert "Code: unknown" in _invoke_status([], monkeypatch, journal).stdout
+
+
+WINDOW_NOW = "2026-09-13T16:00:00-04:00"
+WINDOW_OVER_LINE = "Window: OVER — this 15m is done. Don't click."
+WINDOW_CLOSING_LINE = "Window: CLOSING — under a minute left. Don't click."
+
+
+def _window_journal(path: Path, **entry):
+    row = {
+        "saved_at": "2026-09-13T15:50:00-04:00",
+        "asset": "BTC",
+        "edge": -0.06,
+        "hedge": "SKIP",
+        "ticker": "KXBTC15M-TEST",
+    }
+    row.update(entry)
+    path.write_text(json.dumps({"schema_version": 1, "entries": [row]}))
+
+
+def test_status_last_walk_window_over_closing_live_unknown(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    monkeypatch.setenv("NORTHSTAR_NOW", WINDOW_NOW)
+
+    _window_journal(journal, close_time="2026-09-13T15:45:00-04:00")
+    over = json.loads(_invoke_status(["--json"], monkeypatch, journal).stdout)
+    assert over["last_walk_window"] == "over"
+    human = _invoke_status([], monkeypatch, journal)
+    assert WINDOW_OVER_LINE in human.stdout
+    assert WINDOW_CLOSING_LINE not in human.stdout
+
+    _window_journal(journal, close_time="2026-09-13T16:00:45-04:00")
+    closing = json.loads(_invoke_status(["--json"], monkeypatch, journal).stdout)
+    assert closing["last_walk_window"] == "closing"
+    assert WINDOW_CLOSING_LINE in _invoke_status([], monkeypatch, journal).stdout
+
+    _window_journal(journal, close_time="2026-09-13T16:15:00-04:00")
+    live = json.loads(_invoke_status(["--json"], monkeypatch, journal).stdout)
+    assert live["last_walk_window"] == "live"
+    assert "Window:" not in _invoke_status([], monkeypatch, journal).stdout
+
+    _window_journal(journal)
+    unknown = json.loads(_invoke_status(["--json"], monkeypatch, journal).stdout)
+    assert unknown["last_walk_window"] == "unknown"
+    assert "Window:" not in _invoke_status([], monkeypatch, journal).stdout
+
+
+def test_status_last_walk_window_demo_stays_unknown(monkeypatch, tmp_path):
+    journal = tmp_path / "walk_journal.json"
+    monkeypatch.setenv("NORTHSTAR_NOW", WINDOW_NOW)
+    _window_journal(
+        journal,
+        asset="DEMO",
+        source="demo",
+        close_time="2026-09-13T15:45:00-04:00",
+        ticker="KXBTC15M-26SEP131545-45",
+    )
+    blob = json.loads(_invoke_status(["--json"], monkeypatch, journal).stdout)
+    assert blob["last_walk_window"] == "unknown"
+    assert blob["last_walk_kind"] == "demo"
+    assert "Window:" not in _invoke_status([], monkeypatch, journal).stdout
 
