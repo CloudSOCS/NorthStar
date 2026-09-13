@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from pathlib import Path
+import os
+import subprocess
 
 from poly.practice.paper import select_closed_paper
 from poly.practice.walk import (
@@ -33,6 +36,37 @@ CONTINUE = [
     "uv run northstar practice paper postmortem --json",
 ]
 STATUS_FOOTER = "This is a status check, not a trade."
+CODE_UNKNOWN = "unknown"
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def status_code_view() -> str:
+    """Short git SHA on this machine. Missing git → unknown. Never invents fences."""
+    if "NORTHSTAR_CODE" in os.environ:
+        raw = (os.environ.get("NORTHSTAR_CODE") or "").strip()
+        return raw or CODE_UNKNOWN
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=_repo_root(),
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return CODE_UNKNOWN
+    sha = (out.stdout or "").strip()
+    if out.returncode == 0 and sha:
+        return sha
+    return CODE_UNKNOWN
+
+
+def format_status_code_line(code: str) -> str:
+    return f"Code: {code or CODE_UNKNOWN}"
 
 
 def format_last_walk_kind(entry: Optional[Dict[str, Any]]) -> str:

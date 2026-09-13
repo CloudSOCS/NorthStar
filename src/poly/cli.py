@@ -51,7 +51,9 @@ from poly.practice.orientation import (
     format_last_paper_line,
     format_last_walk_kind,
     format_last_walk_line,
+    format_status_code_line,
     product_status_payload,
+    status_code_view,
 )
 from poly.practice.paper import (
     PAPER_FOOTER,
@@ -1149,6 +1151,8 @@ def status(
     payload = product_status_payload(entries, paper_blob.get("positions") or [])
     halt_state = status_halt_view()
     payload["live_halt"] = halt_state
+    code = status_code_view()
+    payload["code"] = code
     if as_json:
         print(json.dumps(payload, indent=2))
         return
@@ -1162,6 +1166,7 @@ def status(
     table.add_row("Graph command", str(fences["graph_command"]))
     table.add_row("Helper", HELPER)
     table.add_row("Live halt", format_status_halt_line(halt_state).strip())
+    table.add_row("Code", format_status_code_line(code).strip())
     table.add_row("Last lesson", format_last_walk_kind(payload["last_walk"]))
     table.add_row("Last saved lesson", format_last_walk_line(payload["last_walk"]))
     table.add_row("Last paper fill", format_last_paper_line(payload["last_paper"]))

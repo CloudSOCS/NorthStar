@@ -186,6 +186,7 @@ def _invoke_status(args, monkeypatch, journal_path, paper_path=None):
 
 def test_status_json_empty_missing_file(monkeypatch, tmp_path):
     path = tmp_path / "missing.json"
+    monkeypatch.setenv("NORTHSTAR_CODE", "")
     result = _invoke_status(["--json"], monkeypatch, path)
     assert result.exit_code == 0
     blob = json.loads(result.stdout)
@@ -197,6 +198,7 @@ def test_status_json_empty_missing_file(monkeypatch, tmp_path):
     assert blob["helper"] == "must not run kalshi-live"
     assert blob["fences"]["source"] == "static"
     assert blob["live_halt"] == "unknown"
+    assert blob["code"] == "unknown"
     assert "Places real orders" not in result.stdout
     assert not path.exists()
 
@@ -234,12 +236,14 @@ def test_status_json_newest_walk_no_chrome(monkeypatch, tmp_path):
 
 def test_status_human_empty_and_continue(monkeypatch, tmp_path):
     path = tmp_path / "missing.json"
+    monkeypatch.setenv("NORTHSTAR_CODE", "")
     result = _invoke_status([], monkeypatch, path)
     assert result.exit_code == 0
     text = result.stdout
     assert "approve-per-order" in text
     assert "must not run kalshi-live" in text
     assert "Live halt: unknown (Mini only)" in text
+    assert "Code: unknown" in text
     assert "Live halt: on" not in text
     assert "Live halt: off" not in text
     assert "kalshi-live book" not in text
@@ -469,4 +473,19 @@ def test_status_does_not_call_live_book_or_signer():
     assert "write_manual_halt" not in status_src
     assert "clear_halt" not in status_src
     assert "run_live_loop" not in status_src
+
+
+def test_status_code_from_env_or_unknown(monkeypatch, tmp_path):
+    journal = tmp_path / "missing.json"
+    monkeypatch.setenv("NORTHSTAR_CODE", "deadbeef")
+    dumped = _invoke_status(["--json"], monkeypatch, journal)
+    assert dumped.exit_code == 0
+    assert json.loads(dumped.stdout)["code"] == "deadbeef"
+    human = _invoke_status([], monkeypatch, journal)
+    assert human.exit_code == 0
+    assert "Code: deadbeef" in human.stdout
+    monkeypatch.setenv("NORTHSTAR_CODE", "")
+    dumped = _invoke_status(["--json"], monkeypatch, journal)
+    assert json.loads(dumped.stdout)["code"] == "unknown"
+    assert "Code: unknown" in _invoke_status([], monkeypatch, journal).stdout
 
