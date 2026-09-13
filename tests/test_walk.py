@@ -141,6 +141,104 @@ def test_format_walk_live_shows_ticker():
     text = format_walk(quote, spend=2.0)
     assert "Ticker: KXBTC15M-TEST" in text
     assert DEMO_BANNER not in text
+    assert "Window:" not in text
+
+
+WINDOW_NOW = "2026-09-13T16:00:00-04:00"
+WINDOW_OVER_LINE = "Window: OVER — this 15m is done. Don't click."
+WINDOW_CLOSING_LINE = "Window: CLOSING — under a minute left. Don't click."
+
+
+def _btc_quote(*, close_time=None, ticker="KXBTC15M-TEST"):
+    return WalkQuote(
+        asset="BTC",
+        question="BTC price up in next 15 mins?",
+        yes_price=0.50,
+        no_price=0.51,
+        model_prob=None,
+        edge=None,
+        ticker=ticker,
+        close_time=close_time,
+    )
+
+
+def test_format_walk_window_over_from_close_time(monkeypatch):
+    monkeypatch.setenv("NORTHSTAR_NOW", WINDOW_NOW)
+    text = format_walk(
+        _btc_quote(close_time="2026-09-13T15:45:00-04:00"),
+        spend=2.0,
+    )
+    assert WINDOW_OVER_LINE in text
+    assert WINDOW_CLOSING_LINE not in text
+    assert "Step 1" in text
+    assert "Step 4" in text
+    assert FOOTER in text
+
+
+def test_format_walk_window_closing_within_sixty_seconds(monkeypatch):
+    monkeypatch.setenv("NORTHSTAR_NOW", WINDOW_NOW)
+    text = format_walk(
+        _btc_quote(close_time="2026-09-13T16:00:45-04:00"),
+        spend=2.0,
+    )
+    assert WINDOW_CLOSING_LINE in text
+    assert WINDOW_OVER_LINE not in text
+    assert FOOTER in text
+
+
+def test_format_walk_window_silent_when_live_or_unknown(monkeypatch):
+    monkeypatch.setenv("NORTHSTAR_NOW", WINDOW_NOW)
+    live = format_walk(
+        _btc_quote(close_time="2026-09-13T16:15:00-04:00"),
+        spend=2.0,
+    )
+    assert "Window:" not in live
+    unknown = format_walk(_btc_quote(), spend=2.0)
+    assert "Window:" not in unknown
+
+
+def test_format_walk_window_uses_ticker_clock_when_close_missing(monkeypatch):
+    monkeypatch.setenv("NORTHSTAR_NOW", WINDOW_NOW)
+    over = format_walk(
+        _btc_quote(ticker="KXBTC15M-26SEP131545-45"),
+        spend=2.0,
+    )
+    assert WINDOW_OVER_LINE in over
+    closing = format_walk(
+        _btc_quote(ticker="KXBTC15M-26SEP131601-00"),
+        spend=2.0,
+    )
+    assert WINDOW_CLOSING_LINE in closing
+
+
+def test_format_walk_demo_never_prints_window(monkeypatch):
+    monkeypatch.setenv("NORTHSTAR_NOW", WINDOW_NOW)
+    quote = WalkQuote(
+        asset="DEMO",
+        question="Teaching snapshot — not a live market",
+        yes_price=0.40,
+        no_price=0.40,
+        model_prob=0.50,
+        edge=0.10,
+        ticker="KXBTC15M-26SEP131545-45",
+        close_time="2026-09-13T15:45:00-04:00",
+    )
+    text = format_walk(quote, spend=2.0, demo=True)
+    assert "Window:" not in text
+    assert DEMO_BANNER in text
+
+
+def test_format_walk_replay_uses_stored_close_vs_now(monkeypatch):
+    monkeypatch.setenv("NORTHSTAR_NOW", WINDOW_NOW)
+    text = format_walk(
+        _btc_quote(close_time="2026-09-13T15:45:00-04:00"),
+        spend=2.0,
+        replay=True,
+        saved_at="2026-09-13T15:40:00-04:00",
+    )
+    assert WINDOW_OVER_LINE in text
+    assert REPLAY_FOOTER in text
+    assert "Step 1" in text
 
 
 def test_format_walk_expensive_pair_and_negative_edge():

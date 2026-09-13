@@ -21,6 +21,9 @@ MAX_SPEND = 5.0
 MIN_EDGE_TO_CARE = 0.03
 FOOTER = "This is practice only — no live order was placed."
 BANNER = "This is a teaching walk of a real market — no order will be placed"
+WINDOW_OVER_LINE = "Window: OVER — this 15m is done. Don't click."
+WINDOW_CLOSING_LINE = "Window: CLOSING — under a minute left. Don't click."
+WINDOW_CLOSING_SECONDS = 60
 DEMO_BANNER = (
     "This is a demo snapshot, not a live Kalshi market — no order will be placed"
 )
@@ -94,6 +97,31 @@ def _signed_usd(amount: float) -> str:
     return f"{sign}${abs(amount):.2f}"
 
 
+def walk_window_line(
+    quote: WalkQuote,
+    *,
+    now: Optional[datetime] = None,
+    demo: bool = False,
+) -> Optional[str]:
+    """Warn when the 15m close is past or under a minute away. Demo stays silent."""
+    if demo:
+        return None
+    from poly.practice.paper import VENUE_TZ, paper_now, window_end
+
+    clock = now or paper_now()
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=VENUE_TZ)
+    end = window_end({"close_time": quote.close_time, "ticker": quote.ticker})
+    if end is None:
+        return None
+    if clock >= end:
+        return WINDOW_OVER_LINE
+    remaining = (end - clock).total_seconds()
+    if remaining <= WINDOW_CLOSING_SECONDS:
+        return WINDOW_CLOSING_LINE
+    return None
+
+
 def paid_price(ask: Optional[float], mid: float) -> float:
     if ask is not None and ask > 0:
         return ask
@@ -133,6 +161,9 @@ def format_walk(
     lines.append(f"{quote.asset} — {quote.question}")
     if quote.ticker:
         lines.append(f"Ticker: {quote.ticker}")
+    window = walk_window_line(quote, demo=demo)
+    if window:
+        lines.append(window)
     lines.extend(
         [
             "",
