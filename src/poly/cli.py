@@ -17,10 +17,16 @@ from poly.clients.kalshi import KalshiClient
 from poly.config import ExecutionMode
 from poly.execution.dry import run_dry_loop, run_dry_snapshot
 from poly.execution.kalshi_dry import run_kalshi_dry_loop, run_kalshi_dry_snapshot
-from poly.execution.kalshi_live import LiveRequest, LIVE_REFUSE_FOOTER, attempt_live_book
+from poly.execution.kalshi_live import (
+    LiveRequest,
+    LIVE_REFUSE_FOOTER,
+    attempt_live_book,
+    load_live_attempts,
+)
 from poly.execution.kalshi_signer import signed_create_order
 from poly.execution.live_halt import (
     RESUME_FLAG_REFUSE,
+    apply_realized_live_pnl,
     clear_halt,
     format_halt_status,
     format_manual_halt_ok,
@@ -557,6 +563,7 @@ def kalshi_live_book(
         ),
         settings=settings,
         sender=lambda req: signed_create_order(req, settings=settings),
+        result_reader=peek_market_result,
     )
     console.print(result.message)
     if not result.sent:
@@ -569,7 +576,11 @@ def kalshi_live_book(
 def kalshi_live_halt_status() -> None:
     """Show the live-loss halt. Not on the helper allowlist."""
     try:
-        blob = load_halt()
+        blob = apply_realized_live_pnl(
+            None,
+            load_live_attempts().get("attempts") or [],
+            result_reader=peek_market_result,
+        )
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         console.print(f"[red]Could not read live halt: {exc}[/red]")
         raise typer.Exit(1)
@@ -793,6 +804,24 @@ def peek_market_status(ticker: Optional[str]) -> Optional[str]:
     if status is None:
         return None
     return str(status)
+
+
+def peek_market_result(ticker: Optional[str]) -> Optional[str]:
+    """Read-only Kalshi yes/no result. Missing or open → None. Never invents."""
+    name = str(ticker or "").strip()
+    if not name:
+        return None
+    try:
+        data = KalshiClient()._get_json(f"/markets/{name}")
+    except (OSError, httpx.HTTPError, ValueError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    market = data.get("market") if isinstance(data.get("market"), dict) else data
+    result = str(market.get("result") or "").strip().lower()
+    if result in ("yes", "no"):
+        return result
+    return None
 
 
 @paper_app.command("book")

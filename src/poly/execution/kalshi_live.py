@@ -13,7 +13,12 @@ import uuid
 import httpx
 
 from poly.config import ExecutionMode, Settings
-from poly.execution.live_halt import BOOK_HALT_LINE, HALT_READ_REFUSE, is_halted
+from poly.execution.live_halt import (
+    BOOK_HALT_LINE,
+    HALT_READ_REFUSE,
+    apply_realized_live_pnl,
+    is_halted,
+)
 from poly.practice.walk import lose_pnl, tickets_bought, win_pnl
 
 LIVE_SCHEMA = 1
@@ -166,6 +171,7 @@ def attempt_live_book(
     log_path: Optional[Path] = None,
     halt_path: Optional[Path] = None,
     sender: Optional[Sender] = None,
+    result_reader: Optional[Callable[[Optional[str]], Optional[str]]] = None,
 ) -> LiveResult:
     """Fail-closed one-shot. Does not write the graph. Default sender does not sign."""
     path = log_path or default_live_attempts_path()
@@ -185,6 +191,11 @@ def attempt_live_book(
     )
 
     try:
+        apply_realized_live_pnl(
+            halt_path,
+            load_live_attempts(path).get("attempts") or [],
+            result_reader=result_reader,
+        )
         halted = is_halted(halt_path)
     except (OSError, json.JSONDecodeError, ValueError):
         return _refuse(req, reason=HALT_READ_REFUSE, log_path=path)

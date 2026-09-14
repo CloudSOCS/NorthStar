@@ -156,6 +156,7 @@ def test_cli_halt_resume_and_book(monkeypatch, tmp_path):
     assert after["halted"] is False
     assert after["reason"] == "cleared"
     assert after["halted_at"] is None
+    assert after["realized_live_pnl"] == 0.0
 
     again = runner.invoke(app, book_args)
     assert BOOK_HALT_LINE not in again.stdout
@@ -171,3 +172,83 @@ def test_cli_resume_requires_flag():
     source = inspect.getsource(kalshi_live_resume)
     assert "--i-clear-loss-halt" in source
     assert "kalshi-live" not in "".join(CONTINUE)
+
+
+def _sent_fill(**overrides):
+    row = {
+        "kind": "live",
+        "status": "sent",
+        "ticker": "KXBTC15M-LIVE",
+        "side": "yes",
+        "spend": 2.0,
+        "ticket_price": 0.40,
+        "fill_count": "5.00",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_realized_live_pnl_counts_only_closed_filled_live(tmp_path):
+    from poly.execution.live_halt import realized_live_pnl
+
+    attempts = [
+        {
+            "kind": "live_attempt",
+            "status": "refused_local",
+            "side": "yes",
+            "spend": 2.0,
+            "ticket_price": 0.40,
+            "fill_count": "5.00",
+            "ticker": "KXBTC15M-LIVE",
+        },
+        _sent_fill(fill_count="0.00"),
+        _sent_fill(fill_count="5.00"),
+        {
+            "id": "paperish",
+            "kind": "paper",
+            "status": "sent",
+            "side": "yes",
+            "spend": 2.0,
+            "ticket_price": 0.40,
+            "fill_count": "5.00",
+            "ticker": "KXBTC15M-LIVE",
+        },
+    ]
+    pnl = realized_live_pnl(attempts, result_reader=lambda _t: "no")
+    assert pnl == -2.0
+
+
+def test_realized_live_pnl_skips_unknown_result():
+    from poly.execution.live_halt import realized_live_pnl
+
+    assert realized_live_pnl([_sent_fill()], result_reader=lambda _t: None) == 0.0
+    assert realized_live_pnl([], result_reader=lambda _t: "yes") == 0.0
+
+
+def test_apply_live_pnl_trips_at_negative_100_and_keeps_manual(tmp_path):
+    from poly.execution.live_halt import (
+        apply_realized_live_pnl,
+        load_halt,
+        write_manual_halt,
+    )
+
+    halt = tmp_path / "live_halt.json"
+    losses = [_sent_fill(id=str(i)) for i in range(51)]
+    apply_realized_live_pnl(
+        halt,
+        losses,
+        result_reader=lambda _t: "no",
+    )
+    tripped = load_halt(halt)
+    assert tripped["halted"] is True
+    assert tripped["reason"] == "loss"
+    assert tripped["realized_live_pnl"] == -102.0
+    assert tripped["halted_at"]
+
+    halt2 = tmp_path / "manual.json"
+    write_manual_halt(halt2)
+    apply_realized_live_pnl(halt2, [], result_reader=lambda _t: "yes")
+    stayed = load_halt(halt2)
+    assert stayed["halted"] is True
+    assert stayed["reason"] == "manual"
+    assert stayed["realized_live_pnl"] == 0.0

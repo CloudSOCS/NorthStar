@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 import json
 import os
+
+from poly.practice.walk import lose_pnl, win_pnl
 
 HALT_SCHEMA = 1
 LOSS_LIMIT = 100.0
@@ -19,6 +21,7 @@ RESUME_FLAG_REFUSE = (
 HALT_READ_REFUSE = "Could not read live halt. No order was sent."
 MANUAL_REASON = "manual"
 CLEARED_REASON = "cleared"
+LOSS_REASON = "loss"
 
 
 def default_halt_path() -> Path:
@@ -123,6 +126,80 @@ def format_status_halt_line(state: str) -> str:
     if state == STATUS_HALT_UNKNOWN:
         return STATUS_HALT_UNKNOWN_LINE
     return f"Live halt: {state}"
+
+
+def _fill_count(raw: Any) -> float:
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _is_closed_live_fill(row: Any) -> bool:
+    if not isinstance(row, dict):
+        return False
+    if str(row.get("kind") or "") != "live":
+        return False
+    if str(row.get("status") or "") != "sent":
+        return False
+    return _fill_count(row.get("fill_count")) > 0
+
+
+def realized_live_pnl(
+    attempts: Optional[List[Dict[str, Any]]] = None,
+    *,
+    result_reader: Optional[Callable[[Optional[str]], Optional[str]]] = None,
+) -> float:
+    """Sum P&L for venue-filled live sends with a yes/no result. Never uses paper."""
+    reader = result_reader or (lambda _ticker: None)
+    total = 0.0
+    for row in attempts or []:
+        if not _is_closed_live_fill(row):
+            continue
+        result = str(reader(row.get("ticker")) or "").strip().lower()
+        if result not in ("yes", "no"):
+            continue
+        side = str(row.get("side") or "").strip().lower()
+        spend = float(row.get("spend") or 0.0)
+        price = float(row.get("ticket_price") or 0.0)
+        if side == result:
+            total += win_pnl(spend, price)
+        else:
+            total += lose_pnl(spend, price)
+    return round(total, 2)
+
+
+def apply_realized_live_pnl(
+    path: Optional[Path],
+    attempts: Optional[List[Dict[str, Any]]] = None,
+    *,
+    result_reader: Optional[Callable[[Optional[str]], Optional[str]]] = None,
+) -> Dict[str, Any]:
+    """Persist computed live P&L. Trip at -$100. Never lifts an existing halt."""
+    path = path or default_halt_path()
+    pnl = realized_live_pnl(attempts, result_reader=result_reader)
+    existed = path.exists()
+    prior = load_halt(path)
+    prior_halted = bool(prior.get("halted")) if existed else False
+    halted = prior_halted or pnl <= -LOSS_LIMIT
+    if not existed and not halted:
+        blob = empty_halt()
+        blob["realized_live_pnl"] = pnl
+        return blob
+    reason = prior.get("reason")
+    halted_at = prior.get("halted_at")
+    if halted and not prior_halted:
+        reason = LOSS_REASON
+        halted_at = _now()
+    blob = {
+        "schema_version": HALT_SCHEMA,
+        "halted": halted,
+        "reason": reason,
+        "realized_live_pnl": pnl,
+        "halted_at": halted_at if halted else None,
+    }
+    save_halt(blob, path)
+    return blob
 
 
 def format_halt_status(blob: Dict[str, Any]) -> str:
