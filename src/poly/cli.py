@@ -66,6 +66,7 @@ from poly.practice.paper import (
     PAPER_FOOTER,
     PAPER_LIST_EMPTY,
     POSTMORTEM_FOOTER,
+    paper_now,
     book_from_entry,
     default_paper_path,
     dump_paper_json,
@@ -85,8 +86,16 @@ from poly.practice.paper import (
     select_closed_paper,
     settle_paper,
 )
+from poly.practice.scout import (
+    format_scout_click_header,
+    format_scout_end,
+    format_scout_start,
+    run_scout,
+    scout_hours_refuse,
+)
 from poly.practice.walk import (
     SAVE_NOTE,
+    clamp_spend,
     append_journal_entry,
     default_journal_path,
     format_journal_edge,
@@ -665,6 +674,47 @@ def practice_walk(
         )
         console.print(f"[dim]{SAVE_NOTE}[/dim]")
         console.print(f"[dim]{path}[/dim]")
+
+
+@practice_app.command("scout")
+def practice_scout(
+    hours: int = typer.Option(6, "--hours", help="Wall-clock hours to scout (1–8)"),
+    asset: str = typer.Option("BTC", help="Kalshi 15m asset, e.g. BTC, ETH, SOL"),
+    spend: float = typer.Option(
+        2.0, help="Dollars in for Step 2 (default $2, max $5)"
+    ),
+) -> None:
+    """Watch 15m opens. Print a walk only on a real YES click. No order."""
+    import time
+
+    refused = scout_hours_refuse(hours)
+    if refused:
+        console.print(refused)
+        raise typer.Exit(1)
+    spend, _note = clamp_spend(spend)
+    asset_u = asset.strip().upper()
+    console.print(format_scout_start(asset_u, hours))
+
+    def on_click(quote) -> None:
+        console.print(format_scout_click_header(quote))
+        console.print(
+            Panel(
+                format_walk(quote, spend, demo=False),
+                title="NorthStar practice walk",
+                border_style="blue",
+            )
+        )
+
+    counts = run_scout(
+        hours=hours,
+        asset=asset_u,
+        spend=spend,
+        now_fn=paper_now,
+        sleep_fn=time.sleep,
+        load_fn=load_walk_quote,
+        on_click=on_click,
+    )
+    console.print(format_scout_end(counts))
 
 
 def _read_practice_journal(*, as_json: bool):

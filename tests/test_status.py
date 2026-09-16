@@ -32,6 +32,7 @@ def test_product_status_empty_last_walk():
         "uv run northstar status --json",
         "uv run northstar practice walk --demo --save",
         "uv run northstar practice walk --save",
+        "uv run northstar practice scout --hours 6",
         "uv run northstar practice last --json",
         "uv run northstar practice journal --json",
         "uv run northstar practice paper list",
@@ -256,6 +257,7 @@ def test_status_human_empty_and_continue(monkeypatch, tmp_path):
     assert "uv run northstar status --json" in text
     assert "uv run northstar practice walk --demo --save" in text
     assert "uv run northstar practice walk --save" in text
+    assert "uv run northstar practice scout --hours 6" in text
     assert "uv run northstar practice last --json" in text
     assert "uv run northstar practice journal --json" in text
     assert "uv run northstar practice paper list" in text

@@ -68,6 +68,12 @@ Prints ticket price, tiny-size P&L, edge, and a YES+NO hedge check.
 `--save` appends that snapshot to `~/.poly/walk_journal.json` (a notebook, not a trade).
 Always ends with: this is practice only — no live order was placed.
 
+Grok Bot scout (opens only, silent except a real YES click; never sends):
+
+```bash
+uv run northstar practice scout --hours 6
+```
+
 ## 7. Read the practice journal
 ```bash
 northstar practice journal
@@ -100,6 +106,7 @@ uv run northstar practice walk
 uv run northstar practice walk --save
 uv run northstar practice walk --demo
 uv run northstar practice walk --demo --save
+uv run northstar practice scout --hours 6
 uv run northstar practice last
 uv run northstar practice last --json
 uv run northstar practice journal

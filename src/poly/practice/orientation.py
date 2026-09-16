@@ -30,6 +30,7 @@ CONTINUE = [
     "uv run northstar status --json",
     "uv run northstar practice walk --demo --save",
     "uv run northstar practice walk --save",
+    "uv run northstar practice scout --hours 6",
     "uv run northstar practice last --json",
     "uv run northstar practice journal --json",
     "uv run northstar practice paper list",

@@ -34,6 +34,7 @@ uv run northstar practice walk
 uv run northstar practice walk --save
 uv run northstar practice walk --demo
 uv run northstar practice walk --demo --save
+uv run northstar practice scout --hours 6
 uv run northstar practice last
 uv run northstar practice last --json
 uv run northstar practice journal
@@ -44,7 +45,7 @@ uv run northstar practice paper postmortem
 uv run northstar practice paper postmortem --json
 ```
 
-Existing flags on those same commands are fine (`--asset`, `--spend`, `--n`, `--last`, `--demo`, `--json`). Nothing else.
+Existing flags on those same commands are fine (`--asset`, `--spend`, `--hours`, `--n`, `--last`, `--demo`, `--json`). Nothing else.
 `--demo` is a teaching snapshot, not a live Kalshi market.
 
 ## 5. Forbidden
