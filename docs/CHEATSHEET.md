@@ -80,6 +80,8 @@ Mini desk (chime + banner + speak on a click only):
 uv run northstar practice scout --hours 6 --alert --speak
 ```
 
+On a `SCOUT CLICK`, Mini prints a ready `kalshi-live book` line. Paste it in a Mini shell that already has `POLY_MODE` and keys. Helper must not run that line. Window must still be live.
+
 ## 7. Read the practice journal
 ```bash
 northstar practice journal

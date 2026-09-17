@@ -21,6 +21,7 @@ from poly.practice.walk import (
 )
 
 HOURS_REFUSE = "Scout hours must be 1–8. No loop started. No order was placed."
+SCOUT_BOOK_WARNING = "Run this on Mini. Helper must not run kalshi-live."
 SCOUT_HOURS_MIN = 1
 SCOUT_HOURS_MAX = 8
 DEFAULT_SCOUT_HOURS = 6
@@ -90,6 +91,27 @@ def format_scout_click_header(quote: WalkQuote) -> str:
     ticker = (quote.ticker or "").strip()
     edge = quote.edge if quote.edge is not None else 0.0
     return f"SCOUT CLICK {ticker} YES {quote.yes_price:.2f} edge {edge:+.2f}"
+
+
+def _format_scout_spend(spend: float) -> str:
+    if spend == int(spend):
+        return str(int(spend))
+    return f"{spend:.2f}"
+
+
+def format_scout_book_command(quote: WalkQuote, spend: float) -> str:
+    ticker = (quote.ticker or "").strip()
+    edge = quote.edge if quote.edge is not None else 0.0
+    return (
+        "uv run northstar kalshi-live book"
+        f" --ticker {ticker}"
+        " --side yes"
+        f" --spend {_format_scout_spend(spend)}"
+        f" --yes-price {quote.yes_price:.2f}"
+        f" --no-price {quote.no_price:.2f}"
+        f" --edge {edge:+.2f}"
+        " --i-approve-live"
+    )
 
 
 def format_scout_alert_message(quote: WalkQuote) -> str:

@@ -87,7 +87,9 @@ from poly.practice.paper import (
     settle_paper,
 )
 from poly.practice.scout import (
+    SCOUT_BOOK_WARNING,
     alert_scout_click,
+    format_scout_book_command,
     format_scout_click_header,
     format_scout_end,
     format_scout_start,
@@ -716,6 +718,8 @@ def practice_scout(
                 border_style="blue",
             )
         )
+        console.print(SCOUT_BOOK_WARNING)
+        console.print(format_scout_book_command(quote, spend))
         alert_scout_click(alert_cfg, quote)
 
     counts = run_scout(

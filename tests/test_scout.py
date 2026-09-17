@@ -269,6 +269,30 @@ def test_scout_allowlist_has_scout_not_live():
     assert "signed_create_order" not in scout_src
     assert "--save" not in scout_src
     assert format_scout_start("BTC", 6)
+    forbidden = charter.split("## 5. Forbidden", 1)[1]
+    assert "do **not** run it" in forbidden or "do not run it" in forbidden.lower()
+    assert "kalshi-live book" in forbidden
+
+
+def test_format_scout_book_command_click():
+    from poly.practice.scout import SCOUT_BOOK_WARNING, format_scout_book_command
+
+    quote = _quote(yes=0.38, no=0.63, edge=0.07)
+    cmd = format_scout_book_command(quote, 2.0)
+    assert SCOUT_BOOK_WARNING == (
+        "Run this on Mini. Helper must not run kalshi-live."
+    )
+    assert cmd.startswith("uv run northstar kalshi-live book ")
+    assert "--ticker KXBTC15M-26SEP131600-00" in cmd
+    assert "--side yes" in cmd
+    assert "--spend 2" in cmd
+    assert "--yes-price 0.38" in cmd
+    assert "--no-price 0.63" in cmd
+    assert "--edge +0.07" in cmd
+    assert "--i-approve-live" in cmd
+    assert "--both" not in cmd
+    assert "--last" not in cmd
+    assert format_scout_book_command(quote, 2.5).count("--spend 2.50") == 1
 
 
 def test_alert_copy_and_config():

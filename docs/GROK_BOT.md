@@ -51,11 +51,11 @@ Overnight scout stays quiet: `uv run northstar practice scout --hours 6` (no `--
 
 ## 5. Forbidden
 
-Do not run any other CLI command. Do not run `practice buy`, `practice close`, `practice run`, `practice reset`, `practice paper book`, `practice paper settle`, or `kalshi-live` (including halt and resume). `practice buy` / `practice run` is the old virtual wallet, not paper fills from a walk. The helper may run `practice paper list`, `practice paper list --json`, and `practice paper postmortem` (including `--json`). Two notebooks exist — the walk journal and paper positions; do not mix them. The helper must not live-trade and must not book or settle paper fills. Do not edit `agents/` or `execution/live.py`. Do not un-stub anything. Do not click Yes/No or enter an amount for the human.
+Do not run any other CLI command. Do not run `practice buy`, `practice close`, `practice run`, `practice reset`, `practice paper book`, `practice paper settle`, or `kalshi-live` (including halt and resume). If scout prints a `kalshi-live book` line, do **not** run it — paste it on Mini only. `practice buy` / `practice run` is the old virtual wallet, not paper fills from a walk. The helper may run `practice paper list`, `practice paper list --json`, and `practice paper postmortem` (including `--json`). Two notebooks exist — the walk journal and paper positions; do not mix them. The helper must not live-trade and must not book or settle paper fills. Do not edit `agents/` or `execution/live.py`. Do not un-stub anything. Do not click Yes/No or enter an amount for the human.
 
 ## 6. How to report back
 
-Summarize what the command printed, especially JSON. Quote ticket prices, edge, hedge, and `kind` only if they appeared. `kind` is `demo` or `live` — do not invent it. A DEMO row is a teaching snapshot, not a live Kalshi market. If the walk says **Guess: not ready**, say not ready — do not invent a number. If there are no saved walks, say that. End with: this is practice only; no live order was placed.
+Summarize what the command printed, especially JSON. Quote ticket prices, edge, hedge, and `kind` only if they appeared. `kind` is `demo` or `live` — do not invent it. A DEMO row is a teaching snapshot, not a live Kalshi market. If the walk says **Guess: not ready**, say not ready — do not invent a number. If scout prints `SCOUT CLICK` and a `kalshi-live book` line, quote that line for the human and do **not** run it. If there are no saved walks, say that. End with: this is practice only; no live order was placed.
 
 ## 7. Repo and how to run
 
