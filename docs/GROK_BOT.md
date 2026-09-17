@@ -45,8 +45,9 @@ uv run northstar practice paper postmortem
 uv run northstar practice paper postmortem --json
 ```
 
-Existing flags on those same commands are fine (`--asset`, `--spend`, `--hours`, `--n`, `--last`, `--demo`, `--json`). Nothing else.
+Existing flags on those same commands are fine (`--asset`, `--spend`, `--hours`, `--alert`, `--speak`, `--no-sound`, `--n`, `--last`, `--demo`, `--json`). Nothing else.
 `--demo` is a teaching snapshot, not a live Kalshi market.
+Overnight scout stays quiet: `uv run northstar practice scout --hours 6` (no `--alert`). Mini desk may add `--alert --speak`.
 
 ## 5. Forbidden
 

@@ -74,6 +74,12 @@ Grok Bot scout (opens only, silent except a real YES click; never sends):
 uv run northstar practice scout --hours 6
 ```
 
+Mini desk (chime + banner + speak on a click only):
+
+```bash
+uv run northstar practice scout --hours 6 --alert --speak
+```
+
 ## 7. Read the practice journal
 ```bash
 northstar practice journal

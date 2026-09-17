@@ -269,3 +269,93 @@ def test_scout_allowlist_has_scout_not_live():
     assert "signed_create_order" not in scout_src
     assert "--save" not in scout_src
     assert format_scout_start("BTC", 6)
+
+
+def test_alert_copy_and_config():
+    from poly.alerts import AlertConfig
+    from poly.practice.scout import (
+        format_scout_alert_message,
+        format_scout_spoken,
+        scout_alert_config,
+    )
+
+    quote = _quote(yes=0.44, edge=0.03)
+    assert format_scout_alert_message(quote) == (
+        "KXBTC15M-26SEP131600-00 YES 0.44 edge +0.03"
+    )
+    assert format_scout_spoken(quote) == (
+        "Scout click BTC YES 44 cents, edge plus 0.03."
+    )
+    assert scout_alert_config(False, False, False) is None
+    implied = scout_alert_config(False, True, False)
+    assert implied == AlertConfig(sound=True, notification=True, speech=True)
+    muted = scout_alert_config(True, True, True)
+    assert muted == AlertConfig(sound=False, notification=True, speech=True)
+    chime = scout_alert_config(True, False, False)
+    assert chime == AlertConfig(sound=True, notification=True, speech=False)
+
+
+def test_alert_scout_click_fires_once_with_empty_speech_unless_speak():
+    from poly.practice.scout import alert_scout_click, scout_alert_config
+
+    quote = _quote(yes=0.38, edge=0.07)
+    seen = []
+
+    def fake_fire(config, title, message, spoken=""):
+        seen.append((config, title, message, spoken))
+
+    alert_scout_click(scout_alert_config(True, False, False), quote, fire_fn=fake_fire)
+    assert len(seen) == 1
+    _cfg, title, message, spoken = seen[0]
+    assert title == "SCOUT CLICK"
+    assert "YES 0.38" in message
+    assert spoken == ""
+
+    seen.clear()
+    alert_scout_click(scout_alert_config(False, True, False), quote, fire_fn=fake_fire)
+    assert seen[0][3] == "Scout click BTC YES 38 cents, edge plus 0.07."
+
+
+def test_run_scout_skip_does_not_fire():
+    from poly.practice.scout import run_scout
+
+    clock = _Clock(datetime(2026, 9, 13, 16, 0, 8, tzinfo=ET))
+    fired = {"n": 0}
+
+    def on_click(_quote):
+        fired["n"] += 1
+
+    def sleep_fn(seconds: float) -> None:
+        clock.sleep(seconds)
+        clock.now = clock.now + timedelta(hours=6)
+
+    counts = run_scout(
+        hours=6,
+        now_fn=lambda: clock.now,
+        sleep_fn=sleep_fn,
+        load_fn=lambda _a: _quote(yes=0.06, edge=0.40),
+        on_click=on_click,
+    )
+    assert counts.clicks == 0
+    assert counts.skips == 1
+    assert fired["n"] == 0
+
+
+def test_cli_hours_zero_does_not_fire(monkeypatch):
+    from poly.cli import app
+
+    fired = {"n": 0}
+
+    def boom(*_a, **_k):
+        fired["n"] += 1
+
+    monkeypatch.setattr("poly.practice.scout.alert_scout_click", boom)
+    monkeypatch.setattr("poly.alerts.fire", boom)
+    result = CliRunner().invoke(app, ["practice", "scout", "--hours", "0", "--alert"])
+    assert result.exit_code == 1
+    assert fired["n"] == 0
+
+
+def test_continue_overnight_has_no_alert_flag():
+    assert all("--alert" not in cmd for cmd in CONTINUE)
+    assert "uv run northstar practice scout --hours 6" in CONTINUE

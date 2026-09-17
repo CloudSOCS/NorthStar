@@ -87,10 +87,12 @@ from poly.practice.paper import (
     settle_paper,
 )
 from poly.practice.scout import (
+    alert_scout_click,
     format_scout_click_header,
     format_scout_end,
     format_scout_start,
     run_scout,
+    scout_alert_config,
     scout_hours_refuse,
 )
 from poly.practice.walk import (
@@ -683,6 +685,15 @@ def practice_scout(
     spend: float = typer.Option(
         2.0, help="Dollars in for Step 2 (default $2, max $5)"
     ),
+    alert: bool = typer.Option(
+        False, "--alert", help="Sound + desktop notification on a SCOUT CLICK"
+    ),
+    speak: bool = typer.Option(
+        False, "--speak", help="Also speak the click out loud (implies --alert)"
+    ),
+    no_sound: bool = typer.Option(
+        False, "--no-sound", help="With --alert, show notification only (mute chime)"
+    ),
 ) -> None:
     """Watch 15m opens. Print a walk only on a real YES click. No order."""
     import time
@@ -694,6 +705,7 @@ def practice_scout(
     spend, _note = clamp_spend(spend)
     asset_u = asset.strip().upper()
     console.print(format_scout_start(asset_u, hours))
+    alert_cfg = scout_alert_config(alert, speak, no_sound)
 
     def on_click(quote) -> None:
         console.print(format_scout_click_header(quote))
@@ -704,6 +716,7 @@ def practice_scout(
                 border_style="blue",
             )
         )
+        alert_scout_click(alert_cfg, quote)
 
     counts = run_scout(
         hours=hours,

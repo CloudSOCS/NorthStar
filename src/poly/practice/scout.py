@@ -8,6 +8,7 @@ from typing import Callable, Optional
 
 import httpx
 
+from poly.alerts import AlertConfig, fire
 from poly.practice.paper import VENUE_TZ
 from poly.practice.walk import (
     DEFAULT_SPEND,
@@ -89,6 +90,48 @@ def format_scout_click_header(quote: WalkQuote) -> str:
     ticker = (quote.ticker or "").strip()
     edge = quote.edge if quote.edge is not None else 0.0
     return f"SCOUT CLICK {ticker} YES {quote.yes_price:.2f} edge {edge:+.2f}"
+
+
+def format_scout_alert_message(quote: WalkQuote) -> str:
+    ticker = (quote.ticker or "").strip()
+    edge = quote.edge if quote.edge is not None else 0.0
+    return f"{ticker} YES {quote.yes_price:.2f} edge {edge:+.2f}"
+
+
+def format_scout_spoken(quote: WalkQuote) -> str:
+    cents = int(round(quote.yes_price * 100))
+    edge = quote.edge if quote.edge is not None else 0.0
+    return (
+        f"Scout click {quote.asset} YES {cents} cents, edge plus {edge:.2f}."
+    )
+
+
+def scout_alert_config(
+    alert: bool, speak: bool, no_sound: bool
+) -> Optional[AlertConfig]:
+    if not alert and not speak:
+        return None
+    return AlertConfig(
+        sound=not no_sound,
+        notification=True,
+        speech=speak,
+    )
+
+
+def alert_scout_click(
+    config: Optional[AlertConfig],
+    quote: WalkQuote,
+    fire_fn: Callable[..., None] = fire,
+) -> None:
+    if config is None or not config.any_enabled:
+        return
+    spoken = format_scout_spoken(quote) if config.speech else ""
+    fire_fn(
+        config,
+        "SCOUT CLICK",
+        format_scout_alert_message(quote),
+        spoken,
+    )
 
 
 @dataclass
