@@ -48,6 +48,8 @@ def order_body(req: LiveRequest) -> Dict[str, Any]:
         "time_in_force": "immediate_or_cancel",
         "self_trade_prevention_type": "taker_at_cross",
         "client_order_id": str(uuid.uuid4()),
+        # Auto-route by ticker (crypto 15m often lives on a non-zero shard).
+        "exchange_index": -1,
     }
 
 
@@ -111,8 +113,16 @@ def signed_create_order(
             response=response,
         )
     if response.status_code != 201:
+        detail = ""
+        try:
+            detail = (response.text or "").strip().replace("\n", " ")[:300]
+        except Exception:
+            detail = ""
+        msg = f"Kalshi HTTP {response.status_code}"
+        if detail:
+            msg = f"{msg}: {detail}"
         raise httpx.HTTPStatusError(
-            f"Kalshi HTTP {response.status_code}",
+            msg,
             request=response.request,
             response=response,
         )

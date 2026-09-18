@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Callable, Optional
 
 import httpx
 
-from poly.alerts import AlertConfig, fire
+from poly.alerts import AlertConfig, confirm_live_book, copy_to_clipboard, fire
 from poly.practice.paper import VENUE_TZ
 from poly.practice.walk import (
     DEFAULT_SPEND,
@@ -112,6 +113,72 @@ def format_scout_book_command(quote: WalkQuote, spend: float) -> str:
         f" --edge {edge:+.2f}"
         " --i-approve-live"
     )
+
+
+def copy_scout_book_command(
+    quote: WalkQuote,
+    spend: float,
+    copy_fn: Callable[[str], bool] | None = None,
+) -> bool:
+    """Copy the Mini book line to clipboard. Does not send. Helper must not run it."""
+    cmd = format_scout_book_command(quote, spend)
+    fn = copy_fn if copy_fn is not None else copy_to_clipboard
+    return bool(fn(cmd))
+
+
+SCOUT_BOOK_COPIED = "Book line copied to clipboard. Paste on Mini (Cmd+V). Helper must not run it."
+SCOUT_BOOK_COPY_FAILED = "Clipboard copy failed — select the book line above and copy manually."
+SCOUT_OFFER_SKIPPED = "Skipped — no live order."
+SCOUT_OFFER_TITLE = "NorthStar live book"
+MINI_PEM_CANDIDATES = (
+    "/Volumes/App/Kalshi-k/kalshi_private.pem",
+    str(Path.home() / ".kalshi" / "kalshi_private.pem"),
+)
+
+
+def ensure_mini_pem_env() -> Optional[str]:
+    """If KALSHI_PRIVATE_KEY_PATH is unset, point at a known Mini PEM when present."""
+    import os
+
+    current = (os.environ.get("KALSHI_PRIVATE_KEY_PATH") or "").strip()
+    if current:
+        return current if Path(current).expanduser().is_file() else current
+    for candidate in MINI_PEM_CANDIDATES:
+        if Path(candidate).expanduser().is_file():
+            os.environ["KALSHI_PRIVATE_KEY_PATH"] = candidate
+            return candidate
+    return None
+
+
+def format_offer_live_message(quote: WalkQuote, spend: float) -> str:
+    ticker = (quote.ticker or "").strip()
+    edge = quote.edge if quote.edge is not None else 0.0
+    return (
+        f"{ticker}\n"
+        f"BUY YES @ {quote.yes_price:.2f}  NO={quote.no_price:.2f}  "
+        f"edge {edge:+.2f}\n"
+        f"Spend ${_format_scout_spend(spend)}. Window must still be live.\n"
+        "Approve sends one IOC order. Skip continues scouting."
+    )
+
+
+def offer_live_book(
+    quote: WalkQuote,
+    spend: float,
+    *,
+    confirm_fn: Callable[..., bool] = confirm_live_book,
+    send_fn: Callable[[WalkQuote, float], str] | None = None,
+) -> str:
+    """Human Approve dialog → optional send. Never silent. Helper must not call this."""
+    approved = confirm_fn(
+        title=SCOUT_OFFER_TITLE,
+        message=format_offer_live_message(quote, spend),
+    )
+    if not approved:
+        return SCOUT_OFFER_SKIPPED
+    if send_fn is None:
+        return SCOUT_OFFER_SKIPPED
+    return send_fn(quote, spend)
 
 
 def format_scout_alert_message(quote: WalkQuote) -> str:

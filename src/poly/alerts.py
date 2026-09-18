@@ -89,6 +89,48 @@ def open_url(url: str) -> None:
         pass
 
 
+def copy_to_clipboard(text: str) -> bool:
+    """Copy text to the system clipboard (macOS pbcopy). Best-effort; never raises."""
+    if not text:
+        return False
+    if not (_is_mac() and shutil.which("pbcopy")):
+        return False
+    try:
+        proc = subprocess.run(
+            ["pbcopy"],
+            input=text.encode("utf-8"),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return proc.returncode == 0
+    except Exception:
+        return False
+
+
+def confirm_live_book(*, title: str, message: str) -> bool:
+    """macOS Approve/Skip dialog. Returns True only if human clicks Approve live."""
+    if not (_is_mac() and shutil.which("osascript")):
+        return False
+    safe_title = title.replace('"', "'")[:80]
+    safe_msg = message.replace('"', "'")[:400]
+    script = (
+        f'display dialog "{safe_msg}" with title "{safe_title}" '
+        'buttons {"Skip", "Approve live"} default button "Skip" '
+        'cancel button "Skip"'
+    )
+    try:
+        proc = subprocess.run(
+            ["osascript", "-e", script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return proc.returncode == 0
+    except Exception:
+        return False
+
+
 def fire(config: AlertConfig, title: str, message: str, spoken: str = "") -> None:
     """Trigger every enabled alert channel for one signal."""
     if not config.any_enabled:

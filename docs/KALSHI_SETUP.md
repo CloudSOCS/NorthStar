@@ -28,8 +28,10 @@ openssl rsa -in kalshi_private.pem -pubout -out kalshi_public.pem
 
 ```
 KALSHI_API_KEY=your-uuid-here
-KALSHI_PRIVATE_KEY_PATH=/Users/you/.kalshi/kalshi_private.pem
+KALSHI_PRIVATE_KEY_PATH=/Volumes/App/Kalshi-k/kalshi_private.pem
 ```
+
+The PEM must be plain text starting with `-----BEGIN … PRIVATE KEY-----`. If TextEdit saved an `.rtf` as `.pem`, extract/fix it first — RSA load will fail or auth will break.
 
 6. Tell the NorthStar agent when ready — we will wire signed order placement.
 

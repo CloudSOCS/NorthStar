@@ -74,13 +74,27 @@ Grok Bot scout (opens only, silent except a real YES click; never sends):
 uv run northstar practice scout --hours 6
 ```
 
-Mini desk (chime + banner + speak on a click only):
+Mini desk (chime + banner + speak + Approve dialog on a click):
+
+```bash
+export POLY_MODE=live
+export KALSHI_API_KEY='…'   # once per terminal session
+./scripts/mini-desk.sh          # or: uv run northstar practice scout --hours 6 --alert --speak --offer-live
+```
+
+On a `SCOUT CLICK`: copies the book line, alerts you, then shows **Approve live / Skip**. Approve sends one IOC (same gates as `kalshi-live book`). Skip keeps scouting. Helper must not run `--offer-live`.
+
+Quiet Grok overnight (no alert, no offer):
+
+```bash
+uv run northstar practice scout --hours 6
+```
+
+Clipboard-only Mini (no dialog send):
 
 ```bash
 uv run northstar practice scout --hours 6 --alert --speak
 ```
-
-On a `SCOUT CLICK`, Mini prints a ready `kalshi-live book` line. Paste it in a Mini shell that already has `POLY_MODE` and keys. Helper must not run that line. Window must still be live.
 
 ## 7. Read the practice journal
 ```bash
@@ -106,6 +120,14 @@ Reprints the newest walk(s) in the same Step 1–4 voice. No market fetch. No or
 Charter: `docs/GROK_BOT.md`. First-run on the bot computer: `docs/GROK_BOT_SETUP.md`.
 `kalshi-live` is Mac Mini only: human APPROVE per order. Not on the helper allowlist.
 Shared Grok computer is not isolation. Halt file and Kalshi PEM live only on the Mac Mini (`~/.poly/live_halt.json`, `KALSHI_PRIVATE_KEY_PATH`). Helper must not run `kalshi-live`, halt, or resume. Weekly receipt = `status --json` + paper postmortem; human spot-checks one artifact.
+
+Mini PEM (plain text, not RTF):
+
+```bash
+export KALSHI_PRIVATE_KEY_PATH="/Volumes/App/Kalshi-k/kalshi_private.pem"
+```
+
+Do not point at `RSA Private Key.pem` if TextEdit saved it as RTF (`{\rtf1…`). Use the extracted `kalshi_private.pem` on that volume (or `~/.kalshi/kalshi_private.pem`).
 `--demo` is a teaching snapshot, not a live Kalshi market.
 ```bash
 uv run northstar status

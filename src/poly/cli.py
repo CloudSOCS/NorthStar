@@ -87,12 +87,17 @@ from poly.practice.paper import (
     settle_paper,
 )
 from poly.practice.scout import (
+    SCOUT_BOOK_COPIED,
+    SCOUT_BOOK_COPY_FAILED,
     SCOUT_BOOK_WARNING,
     alert_scout_click,
+    copy_scout_book_command,
+    ensure_mini_pem_env,
     format_scout_book_command,
     format_scout_click_header,
     format_scout_end,
     format_scout_start,
+    offer_live_book,
     run_scout,
     scout_alert_config,
     scout_hours_refuse,
@@ -696,8 +701,13 @@ def practice_scout(
     no_sound: bool = typer.Option(
         False, "--no-sound", help="With --alert, show notification only (mute chime)"
     ),
+    offer_live: bool = typer.Option(
+        False,
+        "--offer-live",
+        help="Mini only: after a click, Approve/Skip dialog may send one live book. Not on helper allowlist.",
+    ),
 ) -> None:
-    """Watch 15m opens. Print a walk only on a real YES click. No order."""
+    """Watch 15m opens. Print a walk only on a real YES click. No order unless --offer-live Approve."""
     import time
 
     refused = scout_hours_refuse(hours)
@@ -708,6 +718,34 @@ def practice_scout(
     asset_u = asset.strip().upper()
     console.print(format_scout_start(asset_u, hours))
     alert_cfg = scout_alert_config(alert, speak, no_sound)
+    if offer_live:
+        pem = ensure_mini_pem_env()
+        if pem:
+            console.print(f"[dim]PEM: {pem}[/dim]")
+        console.print(
+            "[yellow]--offer-live on: Approve dialog can send one IOC. Skip continues.[/yellow]"
+        )
+
+    def send_live(quote, spend_amt: float) -> str:
+        settings = Settings()
+        edge = quote.edge if quote.edge is not None else 0.0
+        result = attempt_live_book(
+            LiveRequest(
+                ticker=(quote.ticker or "").strip(),
+                side="yes",
+                spend=spend_amt,
+                yes_price=float(quote.yes_price),
+                no_price=float(quote.no_price),
+                edge=float(edge),
+                approve_live=True,
+                approve_not_ready=False,
+                both=False,
+            ),
+            settings=settings,
+            sender=lambda req: signed_create_order(req, settings=settings),
+            result_reader=peek_market_result,
+        )
+        return result.message.strip()
 
     def on_click(quote) -> None:
         console.print(format_scout_click_header(quote))
@@ -719,8 +757,16 @@ def practice_scout(
             )
         )
         console.print(SCOUT_BOOK_WARNING)
-        console.print(format_scout_book_command(quote, spend))
+        book_cmd = format_scout_book_command(quote, spend)
+        console.print(book_cmd)
+        if copy_scout_book_command(quote, spend):
+            console.print(f"[green]{SCOUT_BOOK_COPIED}[/green]")
+        else:
+            console.print(f"[yellow]{SCOUT_BOOK_COPY_FAILED}[/yellow]")
         alert_scout_click(alert_cfg, quote)
+        if offer_live:
+            outcome = offer_live_book(quote, spend, send_fn=send_live)
+            console.print(outcome)
 
     counts = run_scout(
         hours=hours,

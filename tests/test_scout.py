@@ -295,6 +295,68 @@ def test_format_scout_book_command_click():
     assert format_scout_book_command(quote, 2.5).count("--spend 2.50") == 1
 
 
+def test_copy_scout_book_command_uses_formatter():
+    from poly.practice.scout import copy_scout_book_command, format_scout_book_command
+
+    quote = _quote(yes=0.38, no=0.63, edge=0.07)
+    seen: list[str] = []
+
+    def fake_copy(text: str) -> bool:
+        seen.append(text)
+        return True
+
+    assert copy_scout_book_command(quote, 2.0, copy_fn=fake_copy) is True
+    assert seen == [format_scout_book_command(quote, 2.0)]
+
+
+def test_offer_live_book_skip_does_not_send():
+    from poly.practice.scout import SCOUT_OFFER_SKIPPED, offer_live_book
+
+    quote = _quote(yes=0.38, edge=0.07)
+    sent = {"n": 0}
+
+    def fake_confirm(**_k):
+        return False
+
+    def fake_send(_q, _s):
+        sent["n"] += 1
+        return "SENT"
+
+    assert offer_live_book(quote, 2.0, confirm_fn=fake_confirm, send_fn=fake_send) == (
+        SCOUT_OFFER_SKIPPED
+    )
+    assert sent["n"] == 0
+
+
+def test_offer_live_book_approve_calls_send():
+    from poly.practice.scout import offer_live_book
+
+    quote = _quote(yes=0.38, edge=0.07)
+
+    def fake_confirm(**_k):
+        return True
+
+    def fake_send(q, spend):
+        assert q is quote
+        assert spend == 2.0
+        return "LIVE OK"
+
+    assert (
+        offer_live_book(quote, 2.0, confirm_fn=fake_confirm, send_fn=fake_send)
+        == "LIVE OK"
+    )
+
+
+def test_continue_has_no_offer_live():
+    assert all("--offer-live" not in cmd for cmd in CONTINUE)
+
+
+def test_copy_to_clipboard_empty_false():
+    from poly.alerts import copy_to_clipboard
+
+    assert copy_to_clipboard("") is False
+
+
 def test_alert_copy_and_config():
     from poly.alerts import AlertConfig
     from poly.practice.scout import (
